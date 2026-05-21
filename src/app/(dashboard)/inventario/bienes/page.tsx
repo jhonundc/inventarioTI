@@ -1,0 +1,362 @@
+"use client";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+} from "@tanstack/react-table";
+import { Button } from "@/components/ui/button";
+import { Plus, Search, Edit, Trash2, Eye, Power } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import BienFormModal from "@/components/inventory/BienFormModal";
+import { useState, useMemo } from "react";
+
+// Función para obtener los bienes
+const fetchBienes = async () => {
+  const res = await fetch("/api/bienes");
+  if (!res.ok) throw new Error("Error al cargar los bienes");
+  return res.json();
+};
+
+export default function BienesPage() {
+  const queryClient = useQueryClient();
+  const { data: bienes, isLoading, error } = useQuery({
+    queryKey: ["bienes"],
+    queryFn: fetchBienes,
+  });
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [visibleCount, setVisibleCount] = useState(9);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingBien, setEditingBien] = useState<any>(null);
+  const [readOnlyMode, setReadOnlyMode] = useState(false);
+
+  // Mutaciones para deactivar y eliminar
+  const toggleActivoMutation = useMutation({
+    mutationFn: async (bien: any) => {
+      const res = await fetch("/api/bienes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          IdBien: bien.IdBien,
+          Activo: !bien.Activo,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al cambiar estado del bien");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bienes"] });
+    },
+    onError: (error: any) => {
+      alert(error.message);
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/bienes?id=${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al eliminar el bien");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bienes"] });
+    },
+    onError: (error: any) => {
+      alert(error.message);
+    }
+  });
+
+  const handleToggleActivo = (bien: any) => {
+    if (confirm(`¿Está seguro de ${bien.Activo ? "desactivar" : "activar"} este bien?`)) {
+      toggleActivoMutation.mutate(bien);
+    }
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm("¿Está seguro de eliminar de forma permanente este bien?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  // Manejador para el buscador, resetea la cantidad visible
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setVisibleCount(9);
+  };
+
+  // Filtrado de bienes por término de búsqueda (memorizado)
+  const filteredBienes = useMemo(() => {
+    if (!bienes) return [];
+    const term = searchTerm.toLowerCase();
+    return bienes.filter((b: any) => {
+      return (
+        (b.CodigoInventario?.toLowerCase() || "").includes(term) ||
+        (b.CodigoPatrimonial?.toLowerCase() || "").includes(term) ||
+        (b.Descripcion?.toLowerCase() || "").includes(term) ||
+        (b.Categoria?.CategoriaBien?.toLowerCase() || "").includes(term) ||
+        (b.Marca?.Marca?.toLowerCase() || "").includes(term) ||
+        (b.Modelo?.Modelo?.toLowerCase() || "").includes(term) ||
+        (b.Area?.NombreArea?.toLowerCase() || "").includes(term) ||
+        (b.Condicion?.Condicion?.toLowerCase() || "").includes(term) ||
+        (b.Estado?.EstadoBien?.toLowerCase() || "").includes(term)
+      );
+    });
+  }, [bienes, searchTerm]);
+
+  // Bienes que se muestran actualmente (scroll infinito)
+  const displayedBienes = useMemo(() => {
+    return filteredBienes.slice(0, visibleCount);
+  }, [filteredBienes, visibleCount]);
+
+  // Manejador de Scroll Infinito
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 30) {
+      if (visibleCount < filteredBienes.length) {
+        setVisibleCount((prev) => prev + 9);
+      }
+    }
+  };
+
+  // Definición de columnas (memorizadas)
+  const columns = useMemo(() => [
+    {
+      accessorKey: "CodigoInventario",
+      header: "Cód. Inventario",
+      cell: (info: any) => info.getValue() || "-",
+    },
+    {
+      accessorKey: "CodigoPatrimonial",
+      header: "Cód. Patrimonial",
+      cell: (info: any) => info.getValue() || "-",
+    },
+    {
+      accessorKey: "Descripcion",
+      header: "Descripción",
+      cell: (info: any) => (
+        <span>
+          {info.getValue() || "-"}
+          {!info.row.original.Activo && (
+            <span className="ml-2 text-xs font-semibold text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
+              Inactivo
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "Categoria.CategoriaBien",
+      header: "Categoría",
+      cell: (info: any) => info.row.original.Categoria?.CategoriaBien || "-",
+    },
+    {
+      accessorKey: "Marca.Marca",
+      header: "Marca",
+      cell: (info: any) => info.row.original.Marca?.Marca || "-",
+    },
+    {
+      accessorKey: "Modelo.Modelo",
+      header: "Modelo",
+      cell: (info: any) => info.row.original.Modelo?.Modelo || "-",
+    },
+    {
+      accessorKey: "Area.NombreArea",
+      header: "Área",
+      cell: (info: any) => info.row.original.Area?.NombreArea || "-",
+    },
+    {
+      accessorKey: "Condicion.Condicion",
+      header: "Condición",
+      cell: (info: any) => info.row.original.Condicion?.Condicion || "-",
+    },
+    {
+      accessorKey: "Estado.EstadoBien",
+      header: "Estado",
+      cell: (info: any) => info.row.original.Estado?.EstadoBien || "-",
+    },
+    {
+      id: "actions",
+      header: "Acciones",
+      cell: (info: any) => {
+        const bien = info.row.original;
+        return (
+          <div className="flex items-center space-x-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50" 
+              title="Ver"
+              onClick={() => {
+                setEditingBien(bien);
+                setReadOnlyMode(true);
+                setModalOpen(true);
+              }}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" 
+              title="Editar"
+              onClick={() => {
+                setEditingBien(bien);
+                setReadOnlyMode(false);
+                setModalOpen(true);
+              }}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={`h-8 w-8 ${bien.Activo ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50' : 'text-slate-400 hover:text-slate-500 hover:bg-slate-100'}`} 
+              title={bien.Activo ? "Desactivar" : "Activar"}
+              onClick={() => handleToggleActivo(bien)}
+            >
+              <Power className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" 
+              title="Eliminar"
+              onClick={() => handleDelete(bien.IdBien)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      },
+    },
+  ], []);
+
+  const table = useReactTable({
+    data: displayedBienes,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Inventario de Bienes</h1>
+          <p className="text-slate-500 text-sm">Gestión de equipos y bienes institucionales.</p>
+        </div>
+        <Button 
+          onClick={() => {
+            setEditingBien(null);
+            setReadOnlyMode(false);
+            setModalOpen(true);
+          }}
+          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-900/20 inline-flex items-center justify-center rounded-lg text-sm font-medium h-10 px-4 py-2 transition-all"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Nuevo Bien
+        </Button>
+      </div>
+
+      <BienFormModal 
+        bien={editingBien} 
+        open={modalOpen} 
+        onOpenChange={setModalOpen} 
+        readOnly={readOnlyMode}
+      />
+
+      <div className="flex items-center space-x-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            placeholder="Buscar bienes..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="pl-10 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {isLoading ? (
+          <div className="p-6 text-center text-slate-500">Cargando bienes...</div>
+        ) : error ? (
+          <div className="p-6 text-center text-red-500">Error al cargar los bienes. Verifica la conexión.</div>
+        ) : (
+          <div
+            onScroll={handleScroll}
+            className="overflow-x-auto max-h-[600px] overflow-y-auto relative"
+          >
+            <table className="w-full text-sm text-left text-slate-600 border-collapse">
+              <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="px-6 py-4 font-semibold whitespace-nowrap sticky top-0 bg-slate-50 z-10"
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.length > 0 ? (
+                  table.getRowModel().rows.map((row) => (
+                    <tr 
+                      key={row.id} 
+                      className={`border-b border-slate-100 transition-colors hover:bg-slate-50/50 ${
+                        row.original.Activo ? "bg-white" : "bg-slate-50/40 text-slate-400 opacity-75"
+                      }`}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={columns.length} className="px-6 py-4 text-center text-slate-500">
+                      No se encontraron bienes registrados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Info de Scroll Infinito */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-slate-500">
+          Mostrando {displayedBienes.length} de {filteredBienes.length} registros
+          {filteredBienes.length > displayedBienes.length && (
+            <span className="text-blue-600 font-medium ml-2 animate-pulse">
+              (Desplázate hacia abajo para ver más...)
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
