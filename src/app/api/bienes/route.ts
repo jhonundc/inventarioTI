@@ -1,30 +1,15 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { executeQuery } from "@/lib/db";
+import { verifyToken } from "@/lib/auth/jwt";
 
 // Obtener todos los bienes
 export async function GET() {
   try {
-    const queryText = `
-      SELECT 
-          b.*,
-          m.Marca AS Marca_Marca, m.Activo AS Marca_Activo,
-          mo.Modelo AS Modelo_Modelo, mo.Activo AS Modelo_Activo, mo.IdMarca AS Modelo_IdMarca, mo.IdCategoria AS Modelo_IdCategoria,
-          a.NombreArea AS Area_NombreArea, a.Piso AS Area_Piso, a.Referencia AS Area_Referencia, a.Activo AS Area_Activo,
-          c.Condicion AS Condicion_Condicion, c.Activo AS Condicion_Activo,
-          e.EstadoBien AS Estado_EstadoBien, e.Activo AS Estado_Activo,
-          ca.CategoriaBien AS Categoria_CategoriaBien, ca.Activo AS Categoria_Activo
-      FROM Bienes b
-      LEFT JOIN Marcas m ON b.IdMarca = m.IdMarca
-      LEFT JOIN Modelos mo ON b.IdModelo = mo.IdModelo
-      LEFT JOIN Areas a ON b.IdArea = a.IdArea
-      LEFT JOIN CondicionesBien c ON b.IdCondicion = c.IdCondicion
-      LEFT JOIN EstadosDelBien e ON b.IdEstadoBien = e.IdEstadoBien
-      LEFT JOIN CategoriasBienes ca ON b.IdCategoria = ca.IdCategoria
-      WHERE b.Activo = 1
-      ORDER BY b.FechaRegistro DESC
-    `;
-    const result = await executeQuery(queryText);
-    
+    const result = await executeQuery(
+      "EXEC pro_ObtenerBienesCatalogo"
+    );
+
     const bienes = result.recordset.map((row: any) => ({
       IdBien: row.IdBien,
       CodigoInventario: row.CodigoInventario,
@@ -98,9 +83,51 @@ export async function GET() {
 }
 
 // Crear un nuevo bien
+function parseNullableInt(value: any): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = typeof value === "number" ? value : parseInt(String(value), 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+async function resolveModeloId(data: any) {
+  const modeloNombre = data.Modelo ? String(data.Modelo).trim() : "";
+  if (!modeloNombre) {
+    return parseNullableInt(data.IdModelo);
+  }
+
+  const idMarca = parseNullableInt(data.IdMarca);
+  const idCategoria = parseNullableInt(data.IdCategoria);
+  const query = idMarca
+    ? "SELECT IdModelo FROM Modelos WHERE Modelo = @Modelo AND IdMarca = @IdMarca"
+    : "SELECT IdModelo FROM Modelos WHERE Modelo = @Modelo";
+
+  const result = await executeQuery(query, {
+    Modelo: modeloNombre,
+    IdMarca: idMarca,
+  });
+
+  if (result.recordset.length > 0) {
+    return result.recordset[0].IdModelo;
+  }
+
+  const insertResult = await executeQuery(
+    `INSERT INTO Modelos (Modelo, IdMarca, IdCategoria, Activo) OUTPUT INSERTED.IdModelo VALUES (@Modelo, @IdMarca, @IdCategoria, 1)`,
+    {
+      Modelo: modeloNombre,
+      IdMarca: idMarca,
+      IdCategoria: idCategoria,
+    }
+  );
+
+  return insertResult.recordset[0].IdModelo;
+}
+
 export async function POST(request: Request) {
   try {
     const data = await request.json();
+    console.log("[API] POST /api/bienes payload:", JSON.stringify(data));
     
     // Validaciones básicas
     if (!data.CodigoInventario && !data.CodigoPatrimonial) {
@@ -110,38 +137,67 @@ export async function POST(request: Request) {
       );
     }
 
+    const fechaCompra = data.FechaCompra ? new Date(data.FechaCompra) : null;
+    if (fechaCompra && isNaN(fechaCompra.getTime())) {
+      return NextResponse.json(
+        { error: "Fecha de compra inválida" },
+        { status: 400 }
+      );
+    }
+
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const payload = await verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
+
+    const idModelo = await resolveModeloId(data);
     const result = await executeQuery(
-      `INSERT INTO Bienes (
-        CodigoInventario, CodigoPatrimonial, IdCategoria, IdMarca, IdModelo,
-        IdArea, NumeroSerie, Descripcion, IdCondicion, IdEstadoBien,
-        FechaCompra, Activo, FechaRegistro
-       ) 
-       OUTPUT INSERTED.* 
-       VALUES (
-         @CodigoInventario, @CodigoPatrimonial, @IdCategoria, @IdMarca, @IdModelo,
-         @IdArea, @NumeroSerie, @Descripcion, @IdCondicion, @IdEstadoBien,
-         @FechaCompra, 1, GETDATE()
-       )`,
+      `EXEC pro_CrearBien 
+        @CodigoInventario = @CodigoInventario, 
+        @CodigoPatrimonial = @CodigoPatrimonial, 
+        @IdCategoria = @IdCategoria, 
+        @IdMarca = @IdMarca, 
+        @IdModelo = @IdModelo, 
+        @IdArea = @IdArea, 
+        @NumeroSerie = @NumeroSerie, 
+        @Descripcion = @Descripcion, 
+        @IdCondicion = @IdCondicion, 
+        @IdEstadoBien = @IdEstadoBien, 
+        @FechaCompra = @FechaCompra, 
+        @IdUsuarioRegistro = @IdUsuarioRegistro`,
       {
         CodigoInventario: data.CodigoInventario || null,
         CodigoPatrimonial: data.CodigoPatrimonial || null,
-        IdCategoria: data.IdCategoria ? parseInt(data.IdCategoria) : null,
-        IdMarca: data.IdMarca ? parseInt(data.IdMarca) : null,
-        IdModelo: data.IdModelo ? parseInt(data.IdModelo) : null,
-        IdArea: data.IdArea ? parseInt(data.IdArea) : null,
+        IdCategoria: parseNullableInt(data.IdCategoria),
+        IdMarca: parseNullableInt(data.IdMarca),
+        IdModelo: idModelo,
+        IdArea: parseNullableInt(data.IdArea),
         NumeroSerie: data.NumeroSerie || null,
         Descripcion: data.Descripcion || null,
-        IdCondicion: data.IdCondicion ? parseInt(data.IdCondicion) : null,
-        IdEstadoBien: data.IdEstadoBien ? parseInt(data.IdEstadoBien) : null,
-        FechaCompra: data.FechaCompra ? new Date(data.FechaCompra) : null,
+        IdCondicion: parseNullableInt(data.IdCondicion),
+        IdEstadoBien: parseNullableInt(data.IdEstadoBien),
+        FechaCompra: fechaCompra,
+        IdUsuarioRegistro: payload.id,
       }
     );
-    
-    return NextResponse.json(result.recordset[0], { status: 201 });
+
+    const createdBien = result.recordset?.[0] ?? null;
+    if (createdBien) {
+      return NextResponse.json(createdBien, { status: 201 });
+    }
+
+    return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     console.error("Error en POST /api/bienes:", error);
+    const msg = (error as any)?.message || String(error);
     return NextResponse.json(
-      { error: "Error al crear el bien" },
+      { error: `Error al crear el bien: ${msg}` },
       { status: 500 }
     );
   }
@@ -151,6 +207,17 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const data = await request.json();
+    console.log("[API] PATCH /api/bienes payload:", JSON.stringify(data));
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    const payload = await verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
+
     const { IdBien, ...fields } = data;
     
     if (!IdBien) {
@@ -163,80 +230,72 @@ export async function PATCH(request: Request) {
     // Si solo viene Activo, es una actualización de estado (Activar/Desactivar)
     if (Object.keys(fields).length === 1 && "Activo" in fields) {
       await executeQuery(
-        "UPDATE Bienes SET Activo = @Activo, FechaModificacion = GETDATE() WHERE IdBien = @IdBien",
+        `EXEC pro_DesactivarBien @IdBien = @IdBien`,
         {
           IdBien: parseInt(IdBien),
-          Activo: fields.Activo ? 1 : 0
         }
       );
       return NextResponse.json({ success: true });
     }
 
-    // Actualización completa/parcial de campos
-    const updateFields: string[] = [];
-    const params: Record<string, any> = { IdBien: parseInt(IdBien) };
+    const idModelo = await resolveModeloId(fields);
+    const params: Record<string, any> = { 
+      IdBien: parseNullableInt(IdBien),
+      CodigoInventario: fields.CodigoInventario || null,
+      CodigoPatrimonial: fields.CodigoPatrimonial || null,
+      IdCategoria: parseNullableInt(fields.IdCategoria),
+      IdMarca: parseNullableInt(fields.IdMarca),
+      IdModelo: idModelo,
+      IdArea: parseNullableInt(fields.IdArea),
+      NumeroSerie: fields.NumeroSerie || null,
+      Descripcion: fields.Descripcion || null,
+      IdCondicion: parseNullableInt(fields.IdCondicion),
+      IdEstadoBien: parseNullableInt(fields.IdEstadoBien),
+      FechaCompra: fields.FechaCompra ? new Date(fields.FechaCompra) : null,
+      IdUsuarioModificacion: payload.id,
+    };
 
-    if (fields.CodigoInventario !== undefined) {
-      updateFields.push("CodigoInventario = @CodigoInventario");
-      params.CodigoInventario = fields.CodigoInventario || null;
-    }
-    if (fields.CodigoPatrimonial !== undefined) {
-      updateFields.push("CodigoPatrimonial = @CodigoPatrimonial");
-      params.CodigoPatrimonial = fields.CodigoPatrimonial || null;
-    }
-    if (fields.IdCategoria !== undefined) {
-      updateFields.push("IdCategoria = @IdCategoria");
-      params.IdCategoria = fields.IdCategoria ? parseInt(fields.IdCategoria) : null;
-    }
-    if (fields.IdMarca !== undefined) {
-      updateFields.push("IdMarca = @IdMarca");
-      params.IdMarca = fields.IdMarca ? parseInt(fields.IdMarca) : null;
-    }
-    if (fields.IdModelo !== undefined) {
-      updateFields.push("IdModelo = @IdModelo");
-      params.IdModelo = fields.IdModelo ? parseInt(fields.IdModelo) : null;
-    }
-    if (fields.IdArea !== undefined) {
-      updateFields.push("IdArea = @IdArea");
-      params.IdArea = fields.IdArea ? parseInt(fields.IdArea) : null;
-    }
-    if (fields.NumeroSerie !== undefined) {
-      updateFields.push("NumeroSerie = @NumeroSerie");
-      params.NumeroSerie = fields.NumeroSerie || null;
-    }
-    if (fields.Descripcion !== undefined) {
-      updateFields.push("Descripcion = @Descripcion");
-      params.Descripcion = fields.Descripcion || null;
-    }
-    if (fields.IdCondicion !== undefined) {
-      updateFields.push("IdCondicion = @IdCondicion");
-      params.IdCondicion = fields.IdCondicion ? parseInt(fields.IdCondicion) : null;
-    }
-    if (fields.IdEstadoBien !== undefined) {
-      updateFields.push("IdEstadoBien = @IdEstadoBien");
-      params.IdEstadoBien = fields.IdEstadoBien ? parseInt(fields.IdEstadoBien) : null;
-    }
-    if (fields.FechaCompra !== undefined) {
-      updateFields.push("FechaCompra = @FechaCompra");
-      params.FechaCompra = fields.FechaCompra ? new Date(fields.FechaCompra) : null;
-    }
+    const hasUpdateFields = [
+      "CodigoInventario",
+      "CodigoPatrimonial",
+      "IdCategoria",
+      "IdMarca",
+      "IdModelo",
+      "IdArea",
+      "NumeroSerie",
+      "Descripcion",
+      "IdCondicion",
+      "IdEstadoBien",
+      "FechaCompra",
+    ].some((key) => fields[key] !== undefined);
 
-    if (updateFields.length === 0) {
+    if (!hasUpdateFields) {
       return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
     }
 
-    const queryText = `
-      UPDATE Bienes 
-      SET ${updateFields.join(", ")}, FechaModificacion = GETDATE()
-      WHERE IdBien = @IdBien
-    `;
-
-    await executeQuery(queryText, params);
+    await executeQuery(
+      `EXEC pro_ActualizarBien 
+        @IdBien = @IdBien, 
+        @CodigoInventario = @CodigoInventario, 
+        @CodigoPatrimonial = @CodigoPatrimonial, 
+        @IdCategoria = @IdCategoria, 
+        @IdMarca = @IdMarca, 
+        @IdModelo = @IdModelo, 
+        @IdArea = @IdArea, 
+        @NumeroSerie = @NumeroSerie, 
+        @Descripcion = @Descripcion, 
+        @IdCondicion = @IdCondicion, 
+        @IdEstadoBien = @IdEstadoBien, 
+        @FechaCompra = @FechaCompra, 
+        @IdUsuarioModificacion = @IdUsuarioModificacion`,
+      params
+    );
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error en PATCH /api/bienes:", error);
+    const msg = (error as any)?.message || String(error);
     return NextResponse.json(
-      { error: "Error al actualizar el bien" },
+      { error: `Error al actualizar el bien: ${msg}` },
       { status: 500 }
     );
   }
@@ -257,7 +316,7 @@ export async function DELETE(request: Request) {
 
     // Verificar si está asociado a alguna ficha de soporte
     const checkFichas = await executeQuery(
-      "SELECT COUNT(*) AS count FROM SoporteTecnico WHERE IdBien = @IdBien",
+      `EXEC pro_VerificarBienEnSoporte @IdBien = @IdBien`,
       { IdBien: parseInt(id) }
     );
 
@@ -270,7 +329,7 @@ export async function DELETE(request: Request) {
 
     // Verificar si está asociado a componentes
     const checkComponentes = await executeQuery(
-      "SELECT COUNT(*) AS count FROM Componentes WHERE IdBien = @IdBien",
+      `EXEC pro_VerificarComponentesDeBien @IdBien = @IdBien`,
       { IdBien: parseInt(id) }
     );
 
@@ -281,7 +340,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await executeQuery("DELETE FROM Bienes WHERE IdBien = @IdBien", {
+    await executeQuery(`EXEC pro_DesactivarBien @IdBien = @IdBien`, {
       IdBien: parseInt(id),
     });
 

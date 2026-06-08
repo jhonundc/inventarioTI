@@ -5,7 +5,7 @@ import { executeQuery } from "@/lib/db";
 export async function GET() {
   try {
     const result = await executeQuery(
-      "SELECT * FROM Areas WHERE Activo = 1 ORDER BY NombreArea ASC"
+      "EXEC pro_ObtenerAreasActivas"
     );
     return NextResponse.json(result.recordset);
   } catch (error) {
@@ -30,9 +30,7 @@ export async function POST(request: Request) {
     }
 
     const result = await executeQuery(
-      `INSERT INTO Areas (NombreArea, Piso, Referencia, Activo) 
-       OUTPUT INSERTED.* 
-       VALUES (@NombreArea, @Piso, @Referencia, 1)`,
+      `EXEC pro_CrearArea @NombreArea = @NombreArea, @Piso = @Piso, @Referencia = @Referencia`,
       {
         NombreArea: data.NombreArea,
         Piso: data.Piso || null,
@@ -63,10 +61,7 @@ export async function PATCH(request: Request) {
     }
 
     const result = await executeQuery(
-      `UPDATE Areas 
-       SET NombreArea = @NombreArea, Piso = @Piso, Referencia = @Referencia 
-       OUTPUT INSERTED.* 
-       WHERE IdArea = @IdArea`,
+      `EXEC pro_ActualizarArea @IdArea = @IdArea, @NombreArea = @NombreArea, @Piso = @Piso, @Referencia = @Referencia`,
       {
         IdArea: parseInt(data.IdArea),
         NombreArea: data.NombreArea,
@@ -106,10 +101,7 @@ export async function DELETE(request: Request) {
     }
 
     const result = await executeQuery(
-      `UPDATE Areas 
-       SET Activo = 0 
-       OUTPUT INSERTED.* 
-       WHERE IdArea = @IdArea`,
+      `EXEC pro_DesactivarArea @IdArea = @IdArea`,
       {
         IdArea: parseInt(id),
       }

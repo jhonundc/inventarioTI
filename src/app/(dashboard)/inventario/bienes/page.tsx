@@ -26,7 +26,8 @@ export default function BienesPage() {
     queryFn: fetchBienes,
   });
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchCodigoInventario, setSearchCodigoInventario] = useState("");
+  const [searchCodigoPatrimonial, setSearchCodigoPatrimonial] = useState("");
   const [visibleCount, setVisibleCount] = useState(9);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -89,30 +90,33 @@ export default function BienesPage() {
     }
   };
 
-  // Manejador para el buscador, resetea la cantidad visible
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+  const handleSearchCodigoInventarioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchCodigoInventario(e.target.value);
     setVisibleCount(9);
   };
 
-  // Filtrado de bienes por término de búsqueda (memorizado)
+  const handleSearchCodigoPatrimonialChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchCodigoPatrimonial(e.target.value);
+    setVisibleCount(9);
+  };
+
+  // Filtrado de bienes por código de inventario y código patrimonial
   const filteredBienes = useMemo(() => {
     if (!bienes) return [];
-    const term = searchTerm.toLowerCase();
+    const codigoInventarioTerm = searchCodigoInventario.toLowerCase();
+    const codigoPatrimonialTerm = searchCodigoPatrimonial.toLowerCase();
     return bienes.filter((b: any) => {
-      return (
-        (b.CodigoInventario?.toLowerCase() || "").includes(term) ||
-        (b.CodigoPatrimonial?.toLowerCase() || "").includes(term) ||
-        (b.Descripcion?.toLowerCase() || "").includes(term) ||
-        (b.Categoria?.CategoriaBien?.toLowerCase() || "").includes(term) ||
-        (b.Marca?.Marca?.toLowerCase() || "").includes(term) ||
-        (b.Modelo?.Modelo?.toLowerCase() || "").includes(term) ||
-        (b.Area?.NombreArea?.toLowerCase() || "").includes(term) ||
-        (b.Condicion?.Condicion?.toLowerCase() || "").includes(term) ||
-        (b.Estado?.EstadoBien?.toLowerCase() || "").includes(term)
-      );
+      const codigoInventario = (b.CodigoInventario?.toLowerCase() || "");
+      const codigoPatrimonial = (b.CodigoPatrimonial?.toLowerCase() || "");
+
+      const matchesInventario =
+        !codigoInventarioTerm || codigoInventario.includes(codigoInventarioTerm);
+      const matchesPatrimonial =
+        !codigoPatrimonialTerm || codigoPatrimonial.includes(codigoPatrimonialTerm);
+
+      return matchesInventario && matchesPatrimonial;
     });
-  }, [bienes, searchTerm]);
+  }, [bienes, searchCodigoInventario, searchCodigoPatrimonial]);
 
   // Bienes que se muestran actualmente (scroll infinito)
   const displayedBienes = useMemo(() => {
@@ -274,14 +278,23 @@ export default function BienesPage() {
         readOnly={readOnlyMode}
       />
 
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-slate-600">ID Inventario</label>
           <Input
-            placeholder="Buscar bienes..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            className="pl-10 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+            placeholder="Buscar por código de inventario"
+            value={searchCodigoInventario}
+            onChange={handleSearchCodigoInventarioChange}
+            className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-slate-600">ID Patrimonial</label>
+          <Input
+            placeholder="Buscar por código patrimonial"
+            value={searchCodigoPatrimonial}
+            onChange={handleSearchCodigoPatrimonialChange}
+            className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
       </div>

@@ -1,11 +1,13 @@
-/* const sql = require("mssql");
-require("dotenv").config();
-const bcrypt = require("bcrypt");
+import sql from "mssql";
+import { config as dotenvConfig } from "dotenv";
+import bcrypt from "bcrypt";
+
+dotenvConfig({ path: ".env" });
 
 const config = {
   server: process.env.DB_SERVER || "localhost",
-  port: parseInt(process.env.DB_PORT || "1433"),
-  database: process.env.DB_NAME || "SoporteTI",
+  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 1433,
+  database: process.env.DB_NAME || process.env.DB_DATABASE || "SoporteTI",
   user: process.env.DB_USER || "",
   password: process.env.DB_PASS || "",
   options: {
@@ -188,122 +190,4 @@ async function main() {
 
 main().catch((e) => {
   console.error("Error during seed:", e);
-});}
-*/
-
-const sql = require("mssql");
-require("dotenv").config();
-const bcrypt = require("bcrypt");
-
-const config = {
-  server: process.env.DB_SERVER,
-  database: process.env.DB_DATABASE,
-
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-    trustedConnection: true,
-  },
-};
-
-async function main() {
-  try {
-    console.log("Starting seed with mssql...");
-
-    const pool = await sql.connect(config);
-
-    console.log("✅ Connected to SQL Server");
-
-    // Create roles if they don't exist
-    const roles = [
-      { NombreRol: "Administrador", Activo: true },
-      { NombreRol: "Técnico", Activo: true },
-      { NombreRol: "Usuario", Activo: true },
-    ];
-
-    for (const roleData of roles) {
-      const existingRoleResult = await pool
-        .request()
-        .input("NombreRol", sql.VarChar(50), roleData.NombreRol)
-        .query("SELECT * FROM Roles WHERE NombreRol = @NombreRol");
-
-      if (existingRoleResult.recordset.length === 0) {
-        await pool
-          .request()
-          .input("NombreRol", sql.VarChar(50), roleData.NombreRol)
-          .input("Activo", sql.Bit, roleData.Activo)
-          .query(`
-            INSERT INTO Roles (NombreRol, Activo)
-            VALUES (@NombreRol, @Activo)
-          `);
-
-        console.log(`✅ Created role: ${roleData.NombreRol}`);
-      }
-    }
-
-    // Buscar rol admin
-    const adminRoleResult = await pool
-      .request()
-      .query("SELECT * FROM Roles WHERE NombreRol = 'Administrador'");
-
-    const adminRole = adminRoleResult.recordset[0];
-
-    if (!adminRole) {
-      console.error("❌ Admin role not found");
-      return;
-    }
-
-    // Verificar usuario admin
-    const existingAdminResult = await pool
-      .request()
-      .query("SELECT * FROM Usuarios WHERE Usuario = 'admin'");
-
-    if (existingAdminResult.recordset.length === 0) {
-      const hashedPassword = await bcrypt.hash("admin123", 10);
-
-      await pool
-        .request()
-        .input("Usuario", sql.VarChar(50), "admin")
-        .input("Clave", sql.VarChar(200), hashedPassword)
-        .input("Nombres", sql.VarChar(150), "Administrador Sistema")
-        .input("Cargo", sql.VarChar(100), "Administrador")
-        .input("IdRol", sql.Int, adminRole.IdRol)
-        .input("Activo", sql.Bit, true)
-        .query(`
-          INSERT INTO Usuarios
-          (
-            Usuario,
-            Clave,
-            Nombres,
-            Cargo,
-            IdRol,
-            Activo,
-            FechaCreacion
-          )
-          VALUES
-          (
-            @Usuario,
-            @Clave,
-            @Nombres,
-            @Cargo,
-            @IdRol,
-            @Activo,
-            GETDATE()
-          )
-        `);
-
-      console.log("✅ Created admin user: admin / admin123");
-    } else {
-      console.log("ℹ️ Admin user already exists");
-    }
-
-    await pool.close();
-
-    console.log("✅ Seed completed successfully!");
-
-  } catch (e) {
-    console.error("❌ Error during seed:", e);
-  }
-}
-
-main();
+});

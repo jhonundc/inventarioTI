@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test-db": "node test-db.js"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -26,6 +27,7 @@
     "lucide-react": "^1.16.0",
     "mssql": "^12.5.4",
     "next": "16.2.6",
+    "pdf.js": "^0.1.0",
     "pdfjs": "^2.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",

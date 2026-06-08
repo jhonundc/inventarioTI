@@ -14,12 +14,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Buscar usuario en la base de datos
+    // Buscar usuario usando el procedimiento almacenado `pro_LoginUsuario`
     const userResult = await executeQuery(
-      `SELECT u.*, r.NombreRol 
-       FROM Usuarios u 
-       INNER JOIN Roles r ON u.IdRol = r.IdRol 
-       WHERE u.Usuario = @Usuario`,
+      `EXEC pro_LoginUsuario @Usuario = @Usuario`,
       { Usuario: username }
     );
     const user = userResult.recordset[0];
