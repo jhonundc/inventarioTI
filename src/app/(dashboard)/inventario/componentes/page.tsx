@@ -1,30 +1,34 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
-} from "@tanstack/react-table";
+import { useReactTable, getCoreRowModel, flexRender } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Plus, Search, Edit, Trash2, Eye, Power } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import ComponenteFormModal from "@/components/inventory/ComponenteFormModal";
 import { useState, useMemo } from "react";
 
-// Función para obtener los componentes
-const fetchComponentes = async () => {
-  const res = await fetch("/api/componentes");
-  if (!res.ok) throw new Error("Error al cargar los componentes");
+const fetchComponentes = async ({ queryKey }: any) => {
+  const [_key, codigo, serie] = queryKey;
+  const codigoTrim = String(codigo || "").trim();
+  const serieTrim = String(serie || "").trim();
+
+  let url = "/api/componentes";
+  if (codigoTrim) url = `/api/componentes?codigoPatrimonial=${encodeURIComponent(codigoTrim)}`;
+  else if (serieTrim) url = `/api/componentes?serie=${encodeURIComponent(serieTrim)}`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Error al cargar los componentes de bienes");
   return res.json();
 };
 
 export default function ComponentesPage() {
   const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [codigoSearch, setCodigoSearch] = useState("");
+  const [serieSearch, setSerieSearch] = useState("");
 
   const { data: componentes, isLoading, error } = useQuery({
-    queryKey: ["componentes"],
+    queryKey: ["componentes", codigoSearch, serieSearch],
     queryFn: fetchComponentes,
   });
 
@@ -32,20 +36,20 @@ export default function ComponentesPage() {
   const [editingComponente, setEditingComponente] = useState<any>(null);
   const [readOnlyMode, setReadOnlyMode] = useState(false);
 
-  // Mutaciones para deactivar y eliminar
   const toggleActivoMutation = useMutation({
     mutationFn: async (comp: any) => {
+      const payload = comp.IdBienComponente
+        ? { IdBienComponente: comp.IdBienComponente, Activo: !comp.Activo }
+        : { IdBien: comp.IdBien, IdComponente: comp.IdComponente, Activo: !comp.Activo };
+
       const res = await fetch("/api/componentes", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          IdComponente: comp.IdComponente,
-          Activo: !comp.Activo,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Error al cambiar estado del componente");
+        throw new Error(err.error || "Error al cambiar el estado del componente del bien");
       }
       return res.json();
     },
@@ -54,17 +58,17 @@ export default function ComponentesPage() {
     },
     onError: (error: any) => {
       alert(error.message);
-    }
+    },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      const res = await fetch(`/api/componentes?id=${id}`, {
+    mutationFn: async (comp: any) => {
+      const res = await fetch(`/api/componentes?idBien=${comp.IdBien}&idComponente=${comp.IdComponente}`, {
         method: "DELETE",
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Error al eliminar el componente");
+        throw new Error(err.error || "Error al eliminar el componente del bien");
       }
       return res.json();
     },
@@ -73,139 +77,156 @@ export default function ComponentesPage() {
     },
     onError: (error: any) => {
       alert(error.message);
-    }
+    },
   });
 
   const handleToggleActivo = (comp: any) => {
-    if (confirm(`¿Está seguro de ${comp.Activo ? "desactivar" : "activar"} este componente?`)) {
+    if (confirm(`¿Está seguro de ${comp.Activo ? "desactivar" : "activar"} este registro?`)) {
       toggleActivoMutation.mutate(comp);
     }
   };
 
-  const handleDelete = (id: number) => {
-    if (confirm("¿Está seguro de eliminar de forma permanente este componente?")) {
-      deleteMutation.mutate(id);
+  const handleDelete = (comp: any) => {
+    if (confirm("¿Está seguro de eliminar este componente del bien?")) {
+      deleteMutation.mutate(comp);
     }
   };
 
-  // Filtrado simple por término de búsqueda (memorizado)
   const filteredComponentes = useMemo(() => {
-    const term = searchTerm.toLowerCase();
-    return (
-      componentes?.filter((c: any) => {
-        return (
-          (c.NombreComponente?.toLowerCase() || "").includes(term) ||
-          (c.Marca?.toLowerCase() || "").includes(term) ||
-          (c.Modelo?.toLowerCase() || "").includes(term) ||
-          (c.Capacidad?.toLowerCase() || "").includes(term) ||
-          (c.NumeroSerie?.toLowerCase() || "").includes(term)
-        );
-      }) || []
-    );
-  }, [componentes, searchTerm]);
+    if (!componentes) return [];
+    const codigoTerm = codigoSearch.toLowerCase();
+    const serieTerm = serieSearch.toLowerCase();
 
-  // Definición de columnas (memorizadas)
-  const columns = useMemo(() => [
-    {
-      accessorKey: "NombreComponente",
-      header: "Nombre / Tipo",
-      cell: (info: any) => (
-        <span>
-          {info.getValue() || "-"}
-          {!info.row.original.Activo && (
-            <span className="ml-2 text-xs font-semibold text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-              Inactivo
-            </span>
-          )}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "Marca",
-      header: "Marca",
-      cell: (info: any) => info.row.original.Marca || "-",
-    },
-    {
-      accessorKey: "Modelo",
-      header: "Modelo",
-      cell: (info: any) => info.getValue() || "-",
-    },
-    {
-      accessorKey: "Capacidad",
-      header: "Capacidad / Medida",
-      cell: (info: any) => info.getValue() || "-",
-    },
-    {
-      accessorKey: "Cantidad",
-      header: "Stock / Cantidad",
-      cell: (info: any) => info.getValue() ?? 0,
-    },
-    {
-      accessorKey: "NumeroSerie",
-      header: "Número Serie",
-      cell: (info: any) => info.getValue() || "-",
-    },
-    {
-      accessorKey: "Observacion",
-      header: "Observación",
-      cell: (info: any) => info.getValue() || "-",
-    },
-    {
-      id: "actions",
-      header: "Acciones",
-      cell: (info: any) => {
-        const comp = info.row.original;
-        return (
-          <div className="flex items-center space-x-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50" 
-              title="Ver"
-              onClick={() => {
-                setEditingComponente(comp);
-                setReadOnlyMode(true);
-                setModalOpen(true);
-              }}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" 
-              title="Editar"
-              onClick={() => {
-                setEditingComponente(comp);
-                setReadOnlyMode(false);
-                setModalOpen(true);
-              }}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className={`h-8 w-8 ${comp.Activo ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50' : 'text-slate-400 hover:text-slate-500 hover:bg-slate-100'}`} 
-              title={comp.Activo ? "Desactivar" : "Activar"}
-              onClick={() => handleToggleActivo(comp)}
-            >
-              <Power className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" 
-              title="Eliminar"
-              onClick={() => handleDelete(comp.IdComponente)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+    return componentes.filter((c: any) => {
+      const codigo = (c.CodigoPatrimonial?.toLowerCase() || "");
+      const serie = (c.Serie?.toLowerCase() || "");
+
+      const matchesCodigo = !codigoTerm || codigo.includes(codigoTerm);
+      const matchesSerie = !serieTerm || serie.includes(serieTerm);
+
+      return matchesCodigo && matchesSerie;
+    });
+  }, [componentes, codigoSearch, serieSearch]);
+
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "BienDescripcion",
+        header: "Bien",
+        cell: (info: any) => (
+          <div className="space-y-1">
+            <div>{info.getValue() || "-"}</div>
+            <div className="text-xs text-slate-500">{info.row.original.CodigoInventario || ""}</div>
           </div>
-        );
+        ),
       },
-    },
-  ], []);
+      {
+        accessorKey: "NombreComponente",
+        header: "Componente",
+        cell: (info: any) => (
+          <div className="space-y-1">
+            <div>{info.getValue() || `Componente ${info.row.original.IdComponente}`}</div>
+            {!info.row.original.Activo && (
+              <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600">
+                Inactivo
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "TipoEquipo",
+        header: "Tipo Equipo",
+        cell: (info: any) => info.getValue() || "-",
+      },
+      {
+        accessorKey: "Marca",
+        header: "Marca",
+        cell: (info: any) => info.getValue() || "-",
+      },
+      {
+        accessorKey: "DescripcionModelo",
+        header: "Modelo",
+        cell: (info: any) => info.getValue() || "-",
+      },
+      {
+        accessorKey: "Serie",
+        header: "Serie",
+        cell: (info: any) => info.getValue() || "-",
+      },
+      {
+        accessorKey: "CodigoPatrimonial",
+        header: "Código Patrimonial",
+        cell: (info: any) => info.getValue() || "-",
+      },
+      {
+        accessorKey: "EstadoEquipo",
+        header: "Estado",
+        cell: (info: any) => info.getValue() || "-",
+      },
+      {
+        accessorKey: "Cantidad",
+        header: "Cantidad",
+        cell: (info: any) => info.getValue() ?? 0,
+      },
+      {
+        id: "actions",
+        header: "Acciones",
+        cell: (info: any) => {
+          const comp = info.row.original;
+          return (
+            <div className="flex items-center space-x-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                title="Ver"
+                onClick={() => {
+                  setEditingComponente(comp);
+                  setReadOnlyMode(true);
+                  setModalOpen(true);
+                }}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                title="Editar"
+                onClick={() => {
+                  setEditingComponente(comp);
+                  setReadOnlyMode(false);
+                  setModalOpen(true);
+                }}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-8 w-8 ${comp.Activo ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-slate-400 hover:text-slate-500 hover:bg-slate-100"}`}
+                title={comp.Activo ? "Desactivar" : "Activar"}
+                onClick={() => handleToggleActivo(comp)}
+              >
+                <Power className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                title="Eliminar"
+                onClick={() => handleDelete(comp)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   const table = useReactTable({
     data: filteredComponentes,
@@ -217,10 +238,10 @@ export default function ComponentesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Inventario de Componentes</h1>
-          <p className="text-slate-500 text-sm">Gestión de partes de hardware, consumibles y repuestos.</p>
+          <h1 className="text-2xl font-bold text-slate-800">Componentes de Bienes</h1>
+          <p className="text-slate-500 text-sm">Gestión de componentes asignados a bienes.</p>
         </div>
-        <Button 
+        <Button
           onClick={() => {
             setEditingComponente(null);
             setReadOnlyMode(false);
@@ -228,36 +249,43 @@ export default function ComponentesPage() {
           }}
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-900/20 inline-flex items-center justify-center rounded-lg text-sm font-medium h-10 px-4 py-2 transition-all"
         >
-          <Plus className="mr-2 h-4 w-4" /> Nuevo Componente
+          <Plus className="mr-2 h-4 w-4" /> Nuevo Registro
         </Button>
       </div>
 
-      <ComponenteFormModal 
-        componente={editingComponente} 
-        open={modalOpen} 
-        onOpenChange={setModalOpen} 
+      <ComponenteFormModal
+        componente={editingComponente}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
         readOnly={readOnlyMode}
       />
 
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-slate-600">Código Patrimonial</label>
           <Input
-            placeholder="Buscar componentes..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+            placeholder="Buscar por código patrimonial"
+            value={codigoSearch}
+            onChange={(e) => { setCodigoSearch(e.target.value); setSerieSearch(""); }}
+            className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-slate-600">Serie</label>
+          <Input
+            placeholder="Buscar por serie"
+            value={serieSearch}
+            onChange={(e) => { setSerieSearch(e.target.value); setCodigoSearch(""); }}
+            className="bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {isLoading ? (
-          <div className="p-6 text-center text-slate-500">Cargando componentes...</div>
+          <div className="p-6 text-center text-slate-500">Cargando registros...</div>
         ) : error ? (
-          <div className="p-6 text-center text-red-500">
-            Error al cargar los componentes. Verifica la conexión.
-          </div>
+          <div className="p-6 text-center text-red-500">Error al cargar los registros. Verifica la conexión.</div>
         ) : (
           <div className="overflow-x-auto max-h-[500px] overflow-y-auto relative">
             <table className="w-full text-sm text-left text-slate-600 border-collapse">
@@ -301,11 +329,8 @@ export default function ComponentesPage() {
         )}
       </div>
 
-      {/* Cantidad total de registros */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-slate-500">
-          Mostrando {filteredComponentes.length} registros
-        </div>
+        <div className="text-sm text-slate-500">Mostrando {filteredComponentes.length} registros</div>
       </div>
     </div>
   );

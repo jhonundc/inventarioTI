@@ -19,17 +19,24 @@ export async function POST(request: Request) {
       `EXEC pro_LoginUsuario @Usuario = @Usuario`,
       { Usuario: username }
     );
-    const user = userResult.recordset[0];
+    const user = userResult.recordset?.[0];
 
-    if (!user) {
+    if (!user || !user.Clave) {
+      console.warn("Login failed: usuario no encontrado o sin clave hash", { username, user });
       return NextResponse.json(
         { error: "Credenciales inválidas" },
         { status: 401 }
       );
     }
 
-    // Verificar contraseña
-    const isPasswordValid = await comparePassword(password, user.Clave);
+    // Verificar contraseña (defensivo ante hashes inválidos)
+    let isPasswordValid = false;
+    try {
+      isPasswordValid = await comparePassword(password, user.Clave);
+    } catch (compareError) {
+      console.warn("Login failed: error comparing password", compareError);
+      isPasswordValid = false;
+    }
 
     if (!isPasswordValid) {
       return NextResponse.json(

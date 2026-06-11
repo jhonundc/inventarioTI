@@ -1,19 +1,176 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { executeQuery } from "@/lib/db";
+import { verifyToken } from "@/lib/auth/jwt";
 
-export async function GET() {
+function parseNullableInt(value: any) {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = typeof value === "number" ? value : parseInt(String(value), 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+export async function GET(request: Request) {
   try {
-    const result = await executeQuery(
-      `SELECT c.*, m.Marca 
-       FROM Componentes c
-       LEFT JOIN Marcas m ON c.IdMarca = m.IdMarca
-       ORDER BY c.NombreComponente ASC`
+    const url = new URL(request.url);
+    const catalog = url.searchParams.get("catalog") === "true";
+    const codigoParam = url.searchParams.get("codigoPatrimonial");
+    const serieParam = url.searchParams.get("serie");
+    const idBienComponenteParam = parseNullableInt(url.searchParams.get("idBienComponente"));
+
+    if (catalog) {
+      const result = await executeQuery(
+        `SELECT IdComponente, NombreComponente, IdMarca, Modelo, NumeroSerie, Capacidad, Observacion, Cantidad, Activo
+         FROM Componentes
+         ORDER BY NombreComponente ASC`
+      );
+      return NextResponse.json(result.recordset);
+    }
+
+    // Si piden un registro específico por IdBienComponente
+    if (idBienComponenteParam) {
+      const single = await executeQuery(
+        `EXEC pro_ObtenerBienComponentePorId @IdBienComponente = @IdBienComponente`,
+        { IdBienComponente: idBienComponenteParam }
+      );
+      const records = single.recordset || [];
+      if (records.length === 0) return NextResponse.json([]);
+
+      // Enriquecer con nombres
+      const rec = records[0];
+      const [bRes, cRes] = await Promise.all([
+        rec.IdBien ? executeQuery(`SELECT IdBien, CodigoInventario, Descripcion FROM Bienes WHERE IdBien = @IdBien`, { IdBien: rec.IdBien }) : Promise.resolve({ recordset: [] }),
+        rec.IdComponente ? executeQuery(`SELECT IdComponente, NombreComponente, Modelo FROM Componentes WHERE IdComponente = @IdComponente`, { IdComponente: rec.IdComponente }) : Promise.resolve({ recordset: [] }),
+      ]);
+
+      const enriched = {
+        ...rec,
+        BienDescripcion: (bRes.recordset[0] && bRes.recordset[0].Descripcion) || null,
+        CodigoInventario: (bRes.recordset[0] && bRes.recordset[0].CodigoInventario) || null,
+        NombreComponente: (cRes.recordset[0] && cRes.recordset[0].NombreComponente) || null,
+        ComponenteModelo: (cRes.recordset[0] && cRes.recordset[0].Modelo) || null,
+      };
+
+      return NextResponse.json(enriched);
+    }
+
+    // Si se busca por código patrimonial
+    if (codigoParam) {
+      const result = await executeQuery(
+        `EXEC pro_BuscarBienComponentePorCodigo @CodigoPatrimonial = @CodigoPatrimonial`,
+        { CodigoPatrimonial: codigoParam }
+      );
+      const records = result.recordset || [];
+      if (records.length === 0) return NextResponse.json(records);
+
+      // continuar con enriquecimiento múltiple
+      const bienIds = Array.from(new Set(records.map((r: any) => parseNullableInt(r.IdBien)).filter((id) => id !== null)));
+      const componenteIds = Array.from(new Set(records.map((r: any) => parseNullableInt(r.IdComponente)).filter((id) => id !== null)));
+
+      const [bienesResult, componentesResult] = await Promise.all([
+        bienIds.length
+          ? executeQuery(`SELECT IdBien, CodigoInventario, Descripcion FROM Bienes WHERE IdBien IN (${bienIds.join(",")})`)
+          : Promise.resolve({ recordset: [] }),
+        componenteIds.length
+          ? executeQuery(`SELECT IdComponente, NombreComponente, Modelo FROM Componentes WHERE IdComponente IN (${componenteIds.join(",")})`)
+          : Promise.resolve({ recordset: [] }),
+      ]);
+
+      const bienesMap = new Map((bienesResult.recordset || []).map((b: any) => [b.IdBien, b]));
+      const componentesMap = new Map((componentesResult.recordset || []).map((c: any) => [c.IdComponente, c]));
+
+      const enrichedRecords = records.map((record: any) => ({
+        ...record,
+        BienDescripcion: bienesMap.get(record.IdBien)?.Descripcion || null,
+        CodigoInventario: bienesMap.get(record.IdBien)?.CodigoInventario || null,
+        NombreComponente: componentesMap.get(record.IdComponente)?.NombreComponente || null,
+        ComponenteModelo: componentesMap.get(record.IdComponente)?.Modelo || null,
+      }));
+
+      return NextResponse.json(enrichedRecords);
+    }
+
+    // Si se busca por serie
+    if (serieParam) {
+      const result = await executeQuery(
+        `SELECT * FROM BienesComponentes WHERE Serie LIKE '%' + @Serie + '%' AND Activo = 1`,
+        { Serie: serieParam }
+      );
+      const records = result.recordset || [];
+      if (records.length === 0) return NextResponse.json(records);
+
+      const bienIds = Array.from(new Set(records.map((r: any) => parseNullableInt(r.IdBien)).filter((id) => id !== null)));
+      const componenteIds = Array.from(new Set(records.map((r: any) => parseNullableInt(r.IdComponente)).filter((id) => id !== null)));
+
+      const [bienesResult, componentesResult] = await Promise.all([
+        bienIds.length
+          ? executeQuery(`SELECT IdBien, CodigoInventario, Descripcion FROM Bienes WHERE IdBien IN (${bienIds.join(",")})`)
+          : Promise.resolve({ recordset: [] }),
+        componenteIds.length
+          ? executeQuery(`SELECT IdComponente, NombreComponente, Modelo FROM Componentes WHERE IdComponente IN (${componenteIds.join(",")})`)
+          : Promise.resolve({ recordset: [] }),
+      ]);
+
+      const bienesMap = new Map((bienesResult.recordset || []).map((b: any) => [b.IdBien, b]));
+      const componentesMap = new Map((componentesResult.recordset || []).map((c: any) => [c.IdComponente, c]));
+
+      const enrichedRecords = records.map((record: any) => ({
+        ...record,
+        BienDescripcion: bienesMap.get(record.IdBien)?.Descripcion || null,
+        CodigoInventario: bienesMap.get(record.IdBien)?.CodigoInventario || null,
+        NombreComponente: componentesMap.get(record.IdComponente)?.NombreComponente || null,
+        ComponenteModelo: componentesMap.get(record.IdComponente)?.Modelo || null,
+      }));
+
+      return NextResponse.json(enrichedRecords);
+    }
+
+    const result = await executeQuery(`EXEC pro_ObtenerBienesComponentes`);
+
+    const records = result.recordset || [];
+    if (records.length === 0) {
+      return NextResponse.json(records);
+    }
+
+    const bienIds = Array.from(
+      new Set(records.map((r: any) => parseNullableInt(r.IdBien)).filter((id) => id !== null))
     );
-    return NextResponse.json(result.recordset);
+    const componenteIds = Array.from(
+      new Set(records.map((r: any) => parseNullableInt(r.IdComponente)).filter((id) => id !== null))
+    );
+
+    const [bienesResult, componentesResult] = await Promise.all([
+      bienIds.length
+        ? executeQuery(
+            `SELECT IdBien, CodigoInventario, Descripcion FROM Bienes WHERE IdBien IN (${bienIds.join(",")})`
+          )
+        : Promise.resolve({ recordset: [] }),
+      componenteIds.length
+        ? executeQuery(
+            `SELECT IdComponente, NombreComponente, Modelo FROM Componentes WHERE IdComponente IN (${componenteIds.join(",")})`
+          )
+        : Promise.resolve({ recordset: [] }),
+    ]);
+
+    const bienesMap = new Map(
+      (bienesResult.recordset || []).map((b: any) => [b.IdBien, b])
+    );
+    const componentesMap = new Map(
+      (componentesResult.recordset || []).map((c: any) => [c.IdComponente, c])
+    );
+
+    const enrichedRecords = records.map((record: any) => ({
+      ...record,
+      BienDescripcion: bienesMap.get(record.IdBien)?.Descripcion || null,
+      CodigoInventario: bienesMap.get(record.IdBien)?.CodigoInventario || null,
+      NombreComponente: componentesMap.get(record.IdComponente)?.NombreComponente || null,
+      ComponenteModelo: componentesMap.get(record.IdComponente)?.Modelo || null,
+    }));
+
+    return NextResponse.json(enrichedRecords);
   } catch (error) {
     console.error("Error en GET /api/componentes:", error);
     return NextResponse.json(
-      { error: "Error al obtener los componentes" },
+      { error: "Error al obtener los componentes de bienes" },
       { status: 500 }
     );
   }
@@ -21,147 +178,227 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const payload = await verifyToken(token);
+    if (!payload || !payload.id) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
+
     const data = await request.json();
-    
-    if (!data.NombreComponente) {
+
+    if (!data.IdBien || !data.IdComponente) {
       return NextResponse.json(
-        { error: "El nombre del componente es requerido" },
+        { error: "IdBien e IdComponente son requeridos" },
         { status: 400 }
       );
     }
 
-    const result = await executeQuery(
-      `INSERT INTO Componentes (
-        NombreComponente, IdMarca, Modelo, NumeroSerie, Capacidad,
-        Observacion, Cantidad, Activo
-       )
-       OUTPUT INSERTED.*
-       VALUES (
-        @NombreComponente, @IdMarca, @Modelo, @NumeroSerie, @Capacidad,
-        @Observacion, @Cantidad, 1
-       )`,
+    await executeQuery(
+      `EXEC pro_RegistrarBienComponente
+        @IdBien = @IdBien,
+        @IdComponente = @IdComponente,
+        @Observacion = @Observacion,
+        @IdUsuario = @IdUsuario,
+        @Cantidad = @Cantidad,
+        @TipoEquipo = @TipoEquipo,
+        @DescripcionModelo = @DescripcionModelo,
+        @Marca = @Marca,
+        @Serie = @Serie,
+        @CodigoPatrimonial = @CodigoPatrimonial,
+        @ProcesadorEspecificaciones = @ProcesadorEspecificaciones,
+        @RAM = @RAM,
+        @Almacenamiento = @Almacenamiento,
+        @SistemaOperativo = @SistemaOperativo,
+        @UbicacionFisica = @UbicacionFisica,
+        @UsuarioAsignado = @UsuarioAsignado,
+        @EstadoEquipo = @EstadoEquipo`,
       {
-        NombreComponente: data.NombreComponente,
-        IdMarca: data.IdMarca ? parseInt(data.IdMarca) : null,
-        Modelo: data.Modelo || null,
-        NumeroSerie: data.NumeroSerie || null,
-        Capacidad: data.Capacidad || null,
+        IdBien: parseNullableInt(data.IdBien),
+        IdComponente: parseNullableInt(data.IdComponente),
         Observacion: data.Observacion || null,
-        Cantidad: data.Cantidad ? parseInt(data.Cantidad) : 0,
+        IdUsuario: payload.id,
+        Cantidad: parseNullableInt(data.Cantidad),
+        TipoEquipo: data.TipoEquipo || null,
+        DescripcionModelo: data.DescripcionModelo || null,
+        Marca: data.Marca || null,
+        Serie: data.Serie || null,
+        CodigoPatrimonial: data.CodigoPatrimonial || null,
+        ProcesadorEspecificaciones: data.ProcesadorEspecificaciones || null,
+        RAM: data.RAM || null,
+        Almacenamiento: data.Almacenamiento || null,
+        SistemaOperativo: data.SistemaOperativo || null,
+        UbicacionFisica: data.UbicacionFisica || null,
+        UsuarioAsignado: data.UsuarioAsignado || null,
+        EstadoEquipo: data.EstadoEquipo || null,
       }
     );
 
-    return NextResponse.json(result.recordset[0]);
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error en POST /api/componentes:", error);
     return NextResponse.json(
-      { error: "Error al crear el componente" },
+      { error: "Error al registrar el componente del bien" },
       { status: 500 }
     );
   }
 }
 
-// Actualizar un componente (Editar / Desactivar)
 export async function PATCH(request: Request) {
   try {
     const data = await request.json();
-    const { IdComponente, ...fields } = data;
-    
-    if (!IdComponente) {
+
+    // Preferir el uso del IdBienComponente y del procedimiento almacenado
+    const idBienComponente = parseNullableInt(data.IdBienComponente);
+
+    if (idBienComponente) {
+      const params: Record<string, any> = {
+        IdBienComponente: idBienComponente,
+        IdBien: parseNullableInt(data.IdBien) || null,
+        IdComponente: parseNullableInt(data.IdComponente) || null,
+        Observacion: data.Observacion || null,
+        Cantidad: parseNullableInt(data.Cantidad) || null,
+        TipoEquipo: data.TipoEquipo || null,
+        DescripcionModelo: data.DescripcionModelo || null,
+        Marca: data.Marca || null,
+        Serie: data.Serie || null,
+        CodigoPatrimonial: data.CodigoPatrimonial || null,
+        ProcesadorEspecificaciones: data.ProcesadorEspecificaciones || null,
+        RAM: data.RAM || null,
+        Almacenamiento: data.Almacenamiento || null,
+        SistemaOperativo: data.SistemaOperativo || null,
+        UbicacionFisica: data.UbicacionFisica || null,
+        UsuarioAsignado: data.UsuarioAsignado || null,
+        EstadoEquipo: data.EstadoEquipo || null,
+      };
+      // Si se solicita desactivación explícita, usar el procedimiento
+      if (data.Activo === false) {
+        await executeQuery(`EXEC pro_DesactivarBienComponente @IdBienComponente = @IdBienComponente`, { IdBienComponente: idBienComponente });
+        return NextResponse.json({ success: true });
+      }
+
+      // Reactivar (no hay proc explícito) -> simple UPDATE
+      if (data.Activo === true) {
+        await executeQuery(`UPDATE BienesComponentes SET Activo = 1 WHERE IdBienComponente = @IdBienComponente`, { IdBienComponente: idBienComponente });
+        return NextResponse.json({ success: true });
+      }
+
+      // Edición normal: usar procedimiento de actualización existente
+      await executeQuery(
+        `EXEC pro_ActualizarBienComponente
+          @IdBienComponente = @IdBienComponente,
+          @IdBien = @IdBien,
+          @IdComponente = @IdComponente,
+          @Observacion = @Observacion,
+          @Cantidad = @Cantidad,
+          @TipoEquipo = @TipoEquipo,
+          @DescripcionModelo = @DescripcionModelo,
+          @Marca = @Marca,
+          @Serie = @Serie,
+          @CodigoPatrimonial = @CodigoPatrimonial,
+          @ProcesadorEspecificaciones = @ProcesadorEspecificaciones,
+          @RAM = @RAM,
+          @Almacenamiento = @Almacenamiento,
+          @SistemaOperativo = @SistemaOperativo,
+          @UbicacionFisica = @UbicacionFisica,
+          @UsuarioAsignado = @UsuarioAsignado,
+          @EstadoEquipo = @EstadoEquipo`,
+        params
+      );
+
+      return NextResponse.json({ success: true });
+    }
+
+    // Compatibilidad: si no se proporciona IdBienComponente, usar la lógica anterior
+    if (!data.IdBien || !data.IdComponente) {
       return NextResponse.json(
-        { error: "Debe proporcionar el IdComponente" },
+        { error: "IdBien e IdComponente son requeridos para actualizar" },
         { status: 400 }
       );
     }
 
-    // Si solo viene Activo, es una actualización de estado (Activar/Desactivar)
-    if (Object.keys(fields).length === 1 && "Activo" in fields) {
-      await executeQuery(
-        "UPDATE Componentes SET Activo = @Activo WHERE IdComponente = @IdComponente",
-        {
-          IdComponente: parseInt(IdComponente),
-          Activo: fields.Activo ? 1 : 0
-        }
-      );
-      return NextResponse.json({ success: true });
-    }
-
-    // Actualización completa/parcial de campos
     const updateFields: string[] = [];
-    const params: Record<string, any> = { IdComponente: parseInt(IdComponente) };
+    const params: Record<string, any> = {
+      IdBien: parseNullableInt(data.IdBien),
+      IdComponente: parseNullableInt(data.IdComponente),
+    };
 
-    if (fields.NombreComponente !== undefined) {
-      updateFields.push("NombreComponente = @NombreComponente");
-      params.NombreComponente = fields.NombreComponente || null;
-    }
-    if (fields.IdMarca !== undefined) {
-      updateFields.push("IdMarca = @IdMarca");
-      params.IdMarca = fields.IdMarca ? parseInt(fields.IdMarca) : null;
-    }
-    if (fields.Modelo !== undefined) {
-      updateFields.push("Modelo = @Modelo");
-      params.Modelo = fields.Modelo || null;
-    }
-    if (fields.NumeroSerie !== undefined) {
-      updateFields.push("NumeroSerie = @NumeroSerie");
-      params.NumeroSerie = fields.NumeroSerie || null;
-    }
-    if (fields.Capacidad !== undefined) {
-      updateFields.push("Capacidad = @Capacidad");
-      params.Capacidad = fields.Capacidad || null;
-    }
-    if (fields.Observacion !== undefined) {
-      updateFields.push("Observacion = @Observacion");
-      params.Observacion = fields.Observacion || null;
-    }
-    if (fields.Cantidad !== undefined) {
-      updateFields.push("Cantidad = @Cantidad");
-      params.Cantidad = fields.Cantidad ? parseInt(fields.Cantidad) : 0;
-    }
+    const maybeSet = (field: string, value: any, parser?: (value: any) => any) => {
+      if (value !== undefined) {
+        updateFields.push(`${field} = @${field}`);
+        params[field] = parser ? parser(value) : value || null;
+      }
+    };
+
+    maybeSet("Observacion", data.Observacion);
+    maybeSet("Cantidad", data.Cantidad, parseNullableInt);
+    maybeSet("TipoEquipo", data.TipoEquipo);
+    maybeSet("DescripcionModelo", data.DescripcionModelo);
+    maybeSet("Marca", data.Marca);
+    maybeSet("Serie", data.Serie);
+    maybeSet("CodigoPatrimonial", data.CodigoPatrimonial);
+    maybeSet("ProcesadorEspecificaciones", data.ProcesadorEspecificaciones);
+    maybeSet("RAM", data.RAM);
+    maybeSet("Almacenamiento", data.Almacenamiento);
+    maybeSet("SistemaOperativo", data.SistemaOperativo);
+    maybeSet("UbicacionFisica", data.UbicacionFisica);
+    maybeSet("UsuarioAsignado", data.UsuarioAsignado);
+    maybeSet("EstadoEquipo", data.EstadoEquipo);
+    maybeSet("Activo", data.Activo, (value) => (value ? 1 : 0));
 
     if (updateFields.length === 0) {
-      return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No hay campos para actualizar" },
+        { status: 400 }
+      );
     }
 
-    const queryText = `
-      UPDATE Componentes 
+    const query = `
+      UPDATE BienesComponentes
       SET ${updateFields.join(", ")}
-      WHERE IdComponente = @IdComponente
+      WHERE IdBien = @IdBien AND IdComponente = @IdComponente
     `;
 
-    await executeQuery(queryText, params);
+    await executeQuery(query, params);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error en PATCH /api/componentes:", error);
     return NextResponse.json(
-      { error: "Error al actualizar el componente" },
+      { error: "Error al actualizar el componente del bien" },
       { status: 500 }
     );
   }
 }
 
-// Eliminar un componente
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    
-    if (!id) {
+    const idBien = parseNullableInt(searchParams.get("idBien"));
+    const idComponente = parseNullableInt(searchParams.get("idComponente"));
+
+    if (!idBien || !idComponente) {
       return NextResponse.json(
-        { error: "Debe proporcionar el ID del componente" },
+        { error: "idBien y idComponente son requeridos para eliminar" },
         { status: 400 }
       );
     }
 
-    await executeQuery("DELETE FROM Componentes WHERE IdComponente = @IdComponente", {
-      IdComponente: parseInt(id),
-    });
+    await executeQuery(
+      `DELETE FROM BienesComponentes
+       WHERE IdBien = @IdBien AND IdComponente = @IdComponente`,
+      { IdBien: idBien, IdComponente: idComponente }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error en DELETE /api/componentes:", error);
     return NextResponse.json(
-      { error: "Error al eliminar el componente" },
+      { error: "Error al eliminar el componente del bien" },
       { status: 500 }
     );
   }

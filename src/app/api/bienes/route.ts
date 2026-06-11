@@ -103,6 +103,7 @@ async function resolveModeloId(data: any) {
     ? "SELECT IdModelo FROM Modelos WHERE Modelo = @Modelo AND IdMarca = @IdMarca"
     : "SELECT IdModelo FROM Modelos WHERE Modelo = @Modelo";
 
+  console.log('[resolveModeloId] searching modelo with types:', { Modelo: typeof modeloNombre, IdMarca: typeof idMarca });
   const result = await executeQuery(query, {
     Modelo: modeloNombre,
     IdMarca: idMarca,
@@ -112,6 +113,7 @@ async function resolveModeloId(data: any) {
     return result.recordset[0].IdModelo;
   }
 
+  console.log('[resolveModeloId] inserting modelo with types:', { Modelo: typeof modeloNombre, IdMarca: typeof idMarca, IdCategoria: typeof idCategoria });
   const insertResult = await executeQuery(
     `INSERT INTO Modelos (Modelo, IdMarca, IdCategoria, Activo) OUTPUT INSERTED.IdModelo VALUES (@Modelo, @IdMarca, @IdCategoria, 1)`,
     {
@@ -157,6 +159,21 @@ export async function POST(request: Request) {
     }
 
     const idModelo = await resolveModeloId(data);
+    const paramsForCreate = {
+      CodigoInventario: data.CodigoInventario || null,
+      CodigoPatrimonial: data.CodigoPatrimonial || null,
+      IdCategoria: parseNullableInt(data.IdCategoria),
+      IdMarca: parseNullableInt(data.IdMarca),
+      IdModelo: idModelo,
+      IdArea: parseNullableInt(data.IdArea),
+      NumeroSerie: data.NumeroSerie || null,
+      Descripcion: data.Descripcion || null,
+      IdCondicion: parseNullableInt(data.IdCondicion),
+      IdEstadoBien: parseNullableInt(data.IdEstadoBien),
+      FechaCompra: fechaCompra,
+      IdUsuarioRegistro: payload.id,
+    };
+    console.log('[API] POST /api/bienes params:', Object.keys(paramsForCreate).reduce((acc:any,k)=>{acc[k]=typeof (paramsForCreate as any)[k]; return acc},{}));
     const result = await executeQuery(
       `EXEC pro_CrearBien 
         @CodigoInventario = @CodigoInventario, 
@@ -171,20 +188,7 @@ export async function POST(request: Request) {
         @IdEstadoBien = @IdEstadoBien, 
         @FechaCompra = @FechaCompra, 
         @IdUsuarioRegistro = @IdUsuarioRegistro`,
-      {
-        CodigoInventario: data.CodigoInventario || null,
-        CodigoPatrimonial: data.CodigoPatrimonial || null,
-        IdCategoria: parseNullableInt(data.IdCategoria),
-        IdMarca: parseNullableInt(data.IdMarca),
-        IdModelo: idModelo,
-        IdArea: parseNullableInt(data.IdArea),
-        NumeroSerie: data.NumeroSerie || null,
-        Descripcion: data.Descripcion || null,
-        IdCondicion: parseNullableInt(data.IdCondicion),
-        IdEstadoBien: parseNullableInt(data.IdEstadoBien),
-        FechaCompra: fechaCompra,
-        IdUsuarioRegistro: payload.id,
-      }
+      paramsForCreate
     );
 
     const createdBien = result.recordset?.[0] ?? null;
@@ -254,6 +258,7 @@ export async function PATCH(request: Request) {
       FechaCompra: fields.FechaCompra ? new Date(fields.FechaCompra) : null,
       IdUsuarioModificacion: payload.id,
     };
+    console.log('[API] PATCH /api/bienes params types:', Object.keys(params).reduce((acc:any,k)=>{acc[k]=typeof (params as any)[k]; return acc},{}));
 
     const hasUpdateFields = [
       "CodigoInventario",
