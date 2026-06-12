@@ -34,6 +34,7 @@ export async function GET() {
         id: user.IdUsuario,
         username: user.Usuario,
         name: user.Nombres,
+        role: payload.role || "",
       },
     });
   } catch (error) {

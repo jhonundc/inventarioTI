@@ -26,29 +26,55 @@ type Estadisticas = {
 export default function DashboardPage() {
   const [data, setData] = useState<Estadisticas | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [role, setRole] = useState("");
 
   useEffect(() => {
-    fetch("/api/dashboard/estadisticas")
-      .then((r) => {
-        if (!r.ok) throw new Error("Error al cargar estadísticas");
-        return r.json();
-      })
-      .then((d: Estadisticas) => {
+    const loadSession = async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (!res.ok) return;
+        const session = await res.json();
+        setRole(String(session?.user?.role || "").toLowerCase());
+      } catch (error) {
+        console.error("Error cargando sesión:", error);
+      }
+    }; 
+
+    const loadStats = async () => {
+      try {
+        const res = await fetch("/api/dashboard/estadisticas");
+        if (!res.ok) throw new Error("Error al cargar estadísticas");
+        const d: Estadisticas = await res.json();
         if (d && d.totales) {
           setData(d);
         }
+      } catch (error) {
+        console.error(error);
+      } finally {
         setCargando(false);
-      })
-      .catch(() => setCargando(false));
+      }
+    };
+
+    loadSession();
+    loadStats();
   }, []);
 
+  const isSupport = role.includes("soporte") || role.includes("support");
+
   const stats = data
-    ? [
-        { title: "Total Equipos", value: data.totales.totalBienes.toLocaleString(), icon: Boxes, color: "bg-blue-500" },
-        { title: "Operativos", value: data.totales.totalBienesOperativos.toLocaleString(), icon: CheckCircle, color: "bg-green-500" },
-        { title: "Inoperativos", value: data.totales.totalBienesInoperativos.toLocaleString(), icon: XCircle, color: "bg-red-500" },
-        { title: "Dados de Baja", value: data.totales.totalBajas.toLocaleString(), icon: Trash2, color: "bg-gray-500" },
-      ]
+    ? isSupport
+      ? [
+          { title: "Total Fichas", value: data.totales.totalSoporte.toLocaleString(), icon: Ticket, color: "bg-blue-500" },
+          { title: "Pendientes", value: data.totales.totalSoportePendiente.toLocaleString(), icon: Clock, color: "bg-amber-500" },
+          { title: "En Progreso", value: data.totales.totalSoporteProceso.toLocaleString(), icon: Wrench, color: "bg-indigo-500" },
+          { title: "Atendidas", value: data.totales.totalSoporteAtendido.toLocaleString(), icon: CheckCircle, color: "bg-green-500" },
+        ]
+      : [
+          { title: "Total Equipos", value: data.totales.totalBienes.toLocaleString(), icon: Boxes, color: "bg-blue-500" },
+          { title: "Operativos", value: data.totales.totalBienesOperativos.toLocaleString(), icon: CheckCircle, color: "bg-green-500" },
+          { title: "Inoperativos", value: data.totales.totalBienesInoperativos.toLocaleString(), icon: XCircle, color: "bg-red-500" },
+          { title: "Dados de Baja", value: data.totales.totalBajas.toLocaleString(), icon: Trash2, color: "bg-gray-500" },
+        ]
     : [];
 
   const statusData = data

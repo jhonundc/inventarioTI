@@ -22,6 +22,12 @@ const fetchComponentes = async ({ queryKey }: any) => {
   return res.json();
 };
 
+const fetchSession = async () => {
+  const res = await fetch("/api/auth/session");
+  if (!res.ok) return { user: { role: "" } };
+  return res.json();
+};
+
 export default function ComponentesPage() {
   const queryClient = useQueryClient();
   const [codigoSearch, setCodigoSearch] = useState("");
@@ -31,6 +37,11 @@ export default function ComponentesPage() {
     queryKey: ["componentes", codigoSearch, serieSearch],
     queryFn: fetchComponentes,
   });
+  const { data: sessionData } = useQuery({
+    queryKey: ["session"],
+    queryFn: fetchSession,
+  });
+  const isSupport = String(sessionData?.user?.role || "").toLowerCase().includes("soporte");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingComponente, setEditingComponente] = useState<any>(null);
@@ -189,43 +200,47 @@ export default function ComponentesPage() {
               >
                 <Eye className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                title="Editar"
-                onClick={() => {
-                  setEditingComponente(comp);
-                  setReadOnlyMode(false);
-                  setModalOpen(true);
-                }}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-8 w-8 ${comp.Activo ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-slate-400 hover:text-slate-500 hover:bg-slate-100"}`}
-                title={comp.Activo ? "Desactivar" : "Activar"}
-                onClick={() => handleToggleActivo(comp)}
-              >
-                <Power className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                title="Eliminar"
-                onClick={() => handleDelete(comp)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {!isSupport && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    title="Editar"
+                    onClick={() => {
+                      setEditingComponente(comp);
+                      setReadOnlyMode(false);
+                      setModalOpen(true);
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 ${comp.Activo ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-slate-400 hover:text-slate-500 hover:bg-slate-100"}`}
+                    title={comp.Activo ? "Desactivar" : "Activar"}
+                    onClick={() => handleToggleActivo(comp)}
+                  >
+                    <Power className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    title="Eliminar"
+                    onClick={() => handleDelete(comp)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
           );
         },
       },
     ],
-    []
+    [isSupport]
   );
 
   const table = useReactTable({
@@ -241,16 +256,18 @@ export default function ComponentesPage() {
           <h1 className="text-2xl font-bold text-slate-800">Componentes de Bienes</h1>
           <p className="text-slate-500 text-sm">Gestión de componentes asignados a bienes.</p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingComponente(null);
-            setReadOnlyMode(false);
-            setModalOpen(true);
-          }}
-          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-900/20 inline-flex items-center justify-center rounded-lg text-sm font-medium h-10 px-4 py-2 transition-all"
-        >
-          <Plus className="mr-2 h-4 w-4" /> Nuevo Registro
-        </Button>
+        {!isSupport && (
+          <Button
+            onClick={() => {
+              setEditingComponente(null);
+              setReadOnlyMode(false);
+              setModalOpen(true);
+            }}
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-900/20 inline-flex items-center justify-center rounded-lg text-sm font-medium h-10 px-4 py-2 transition-all"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Nuevo Registro
+          </Button>
+        )}
       </div>
 
       <ComponenteFormModal

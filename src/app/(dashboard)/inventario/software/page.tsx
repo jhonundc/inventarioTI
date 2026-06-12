@@ -20,6 +20,15 @@ export default function SoftwarePage() {
     queryKey: ["software"],
     queryFn: fetchSoftware,
   });
+  const { data: sessionData } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/session");
+      if (!res.ok) return { user: { role: "" } };
+      return res.json();
+    },
+  });
+  const isSupport = String(sessionData?.user?.role || "").toLowerCase().includes("soporte");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [visibleCount, setVisibleCount] = useState(12);
@@ -199,43 +208,47 @@ export default function SoftwarePage() {
               >
                 <Eye className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 text-blue-600 hover:text-blue-800"
-                title="Editar"
-                onClick={() => {
-                  setEditingSoftware(item);
-                  setReadOnlyMode(false);
-                  setModalOpen(true);
-                }}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`h-9 w-9 ${item.Activo ? "text-amber-600 hover:text-amber-800" : "text-slate-500 hover:text-slate-900"}`}
-                title={item.Activo ? "Desactivar" : "Activar"}
-                onClick={() => handleToggleActivo(item)}
-              >
-                <Power className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 text-red-600 hover:text-red-800"
-                title="Desactivar"
-                onClick={() => handleDelete(item.IdSoftware)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {!isSupport && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-blue-600 hover:text-blue-800"
+                    title="Editar"
+                    onClick={() => {
+                      setEditingSoftware(item);
+                      setReadOnlyMode(false);
+                      setModalOpen(true);
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-9 w-9 ${item.Activo ? "text-amber-600 hover:text-amber-800" : "text-slate-500 hover:text-slate-900"}`}
+                    title={item.Activo ? "Desactivar" : "Activar"}
+                    onClick={() => handleToggleActivo(item)}
+                  >
+                    <Power className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-red-600 hover:text-red-800"
+                    title="Desactivar"
+                    onClick={() => handleDelete(item.IdSoftware)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
           );
         },
       },
     ],
-    []
+    [isSupport]
   );
 
   const table = useReactTable({
@@ -251,6 +264,7 @@ export default function SoftwarePage() {
           <h1 className="text-2xl font-bold text-slate-800">Inventario de Software</h1>
           <p className="text-slate-500 text-sm">Registro, edición y seguimiento de licencias de software.</p>
         </div>
+        {!isSupport && (
         <Button
           className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-900/20 inline-flex items-center justify-center rounded-lg text-sm font-medium h-10 px-4 py-2"
           onClick={() => {
@@ -261,6 +275,7 @@ export default function SoftwarePage() {
         >
           <Plus className="mr-2 h-4 w-4" /> Nuevo Software
         </Button>
+      )}
       </div>
 
       <SoftwareFormModal

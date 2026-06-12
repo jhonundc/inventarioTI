@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/ui";
 import { Button } from "@/components/ui/button";
 
-const menuItems = [
+const adminMenuItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
   { 
     icon: Boxes, 
@@ -71,10 +71,57 @@ const menuItems = [
   { icon: BarChart, label: "Reportes", href: "/reportes" },
 ];
 
+const supportMenuItems = [
+  { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+  {
+    icon: Boxes,
+    label: "Inventario",
+    href: "/inventario",
+    subItems: [
+      { label: "Bienes", href: "/inventario/bienes" },
+      { label: "Componentes", href: "/inventario/componentes" },
+      { label: "Software", href: "/inventario/software" },
+    ],
+  },
+  { icon: Network, label: "Redes", href: "/redes" },
+  {
+    icon: Ticket,
+    label: "Soporte",
+    href: "/soporte",
+    subItems: [
+      { label: "Generar Ficha Soporte", href: "/soporte/ficha" },
+      { label: "Generar Ficha de Baja", href: "/soporte/baja" },
+      { label: "Mantenimiento", href: "/soporte/mantenimiento" },
+    ],
+  },
+  { icon: BarChart, label: "Reportes", href: "/reportes" },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
   const [openSubMenus, setOpenSubMenus] = useState<string[]>([]);
+  const [menuItems, setMenuItems] = useState(adminMenuItems);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (!res.ok) return;
+        const data = await res.json();
+        const role = String(data?.user?.role || "").toLowerCase();
+        if (role.includes("soporte")) {
+          setMenuItems(supportMenuItems);
+        } else {
+          setMenuItems(adminMenuItems);
+        }
+      } catch (error) {
+        console.error("Error fetching session in Sidebar:", error);
+      }
+    };
+
+    fetchSession();
+  }, []);
 
   const toggleSubMenu = (label: string) => {
     setOpenSubMenus((prev) =>

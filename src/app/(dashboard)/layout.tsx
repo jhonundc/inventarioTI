@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import { useUIStore } from "@/store/ui";
 import { cn } from "@/lib/utils";
@@ -21,6 +23,31 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isSidebarCollapsed } = useUIStore();
+  const pathname = usePathname();
+  const router = useRouter();
+  const [role, setRole] = useState("");
+
+  useEffect(() => {
+    const loadSession = async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (!res.ok) return;
+        const data = await res.json();
+        setRole(String(data?.user?.role || "").toLowerCase());
+      } catch (error) {
+        console.error("Error cargando sesión en DashboardLayout:", error);
+      }
+    };
+
+    loadSession();
+  }, []);
+
+  useEffect(() => {
+    if (!role) return;
+    if (role.includes("soporte") && pathname !== "/reportes" && pathname !== "/" && !pathname.startsWith("/inventario") && pathname !== "/redes" && !pathname.startsWith("/soporte")) {
+      router.replace("/reportes");
+    }
+  }, [role, pathname, router]);
 
   return (
     <div className="flex h-screen bg-[#F8FAFC]">
