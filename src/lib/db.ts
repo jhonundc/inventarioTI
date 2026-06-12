@@ -89,10 +89,10 @@ function addParams(request: sql.Request, params: Record<string, any>) {
 
       // Strings -> try to coerce to the most appropriate type
       if (typeof value === "string") {
-        if (lowerKey.includes("id") && /^\d+$/.test(value)) {
-          request.input(key, sql.Int, parseInt(value, 10));
-        } else if (lowerKey.includes("fecha") && !Number.isNaN(Date.parse(value))) {
+        if (lowerKey.includes("fecha") && !Number.isNaN(Date.parse(value))) {
           request.input(key, sql.Date, new Date(value));
+        } else if (lowerKey.includes("id") && /^\d+$/.test(value)) {
+          request.input(key, sql.Int, parseInt(value, 10));
         } else if (lowerKey.includes("activo") && /^(true|false)$/i.test(value)) {
           request.input(key, sql.Bit, value.toLowerCase() === "true");
         } else {

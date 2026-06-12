@@ -62,6 +62,10 @@ const menuItems = [
       { label: "Modelos", href: "/configuracion/modelos" },
       { label: "Condiciones", href: "/configuracion/condiciones" },
       { label: "Estados", href: "/configuracion/estados" },
+      { label: "Tipos de Software", href: "/configuracion/tipos-software" },
+      { label: "Tipos de Licencia", href: "/configuracion/tipos-licencia" },
+      { label: "Tipos de Asignación", href: "/configuracion/tipos-asignacion-software" },
+      { label: "Catálogo de Software", href: "/configuracion/software-catalogo" },
     ]
   },
   { icon: BarChart, label: "Reportes", href: "/reportes" },

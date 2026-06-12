@@ -47,6 +47,26 @@ export async function getTiposEstacion() {
   return result.recordset;
 }
 
+export async function getSoftwareCatalogo() {
+  const result = await executeQuery("SELECT * FROM SoftwareCatalogo WHERE Activo = 1 ORDER BY NombreSoftware ASC");
+  return result.recordset;
+}
+
+export async function getTiposSoftware() {
+  const result = await executeQuery("SELECT * FROM TipoSoftware WHERE Activo = 1 ORDER BY TipoSoftware ASC");
+  return result.recordset;
+}
+
+export async function getTiposLicencia() {
+  const result = await executeQuery("SELECT * FROM TipoLicencia WHERE Activo = 1 ORDER BY TipoLicencia ASC");
+  return result.recordset;
+}
+
+export async function getTiposAsignacionSoftware() {
+  const result = await executeQuery("SELECT * FROM TipoAsignacionSoftware WHERE Activo = 1 ORDER BY TipoAsignacion ASC");
+  return result.recordset;
+}
+
 export async function getTiposBien() {
   // Since there's no dedicated table for TipoBien, we'll return hardcoded values
   // based on the requirements: informatico, comunicacion, electrico
