@@ -132,3 +132,73 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    const data = await request.json();
+    const id = parseInt(data.IdBaja || "", 10);
+
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "IdBaja es requerido" }, { status: 400 });
+    }
+
+    await executeQuery(
+      `UPDATE BajasBienes
+       SET NumeroFichaBaja = @NumeroFichaBaja,
+           UnidadOrganica = @UnidadOrganica,
+           IdBien = @IdBien,
+           Responsable = @Responsable,
+           Dependencia = @Dependencia,
+           Ambiente = @Ambiente,
+           TipoBien = @TipoBien,
+           IdCondicion = @IdCondicion,
+           IdEstadoBien = @IdEstadoBien,
+           Fundamentacion = @Fundamentacion,
+           Recomendacion = @Recomendacion,
+           CausalBaja = @CausalBaja,
+           Observacion = @Observacion,
+           IdUsuarioRegistro = @IdUsuarioRegistro
+       WHERE IdBaja = @IdBaja`,
+      {
+        IdBaja: id,
+        NumeroFichaBaja: data.NumeroFichaBaja || null,
+        UnidadOrganica: data.UnidadOrganica || null,
+        IdBien: data.IdBien ? parseInt(data.IdBien, 10) : null,
+        Responsable: data.Responsable || null,
+        Dependencia: data.Dependencia || null,
+        Ambiente: data.Ambiente || null,
+        TipoBien: data.TipoBien || null,
+        IdCondicion: data.IdCondicion ? parseInt(data.IdCondicion, 10) : null,
+        IdEstadoBien: data.IdEstadoBien ? parseInt(data.IdEstadoBien, 10) : null,
+        Fundamentacion: data.Fundamentacion || null,
+        Recomendacion: data.Recomendacion || null,
+        CausalBaja: data.CausalBaja || null,
+        Observacion: data.Observacion || null,
+        IdUsuarioRegistro: data.IdUsuarioRegistro ? parseInt(data.IdUsuarioRegistro, 10) : null,
+      }
+    );
+
+    return NextResponse.json({ success: true, message: "Ficha de baja actualizada" });
+  } catch (error) {
+    console.error("Error en PATCH /api/soporte/baja:", error);
+    return NextResponse.json({ error: "Error al actualizar la ficha de baja" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = parseInt(searchParams.get("id") || "", 10);
+
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "IdBaja es requerido" }, { status: 400 });
+    }
+
+    await executeQuery("DELETE FROM BajasBienes WHERE IdBaja = @IdBaja", { IdBaja: id });
+
+    return NextResponse.json({ success: true, message: "Ficha de baja eliminada" });
+  } catch (error) {
+    console.error("Error en DELETE /api/soporte/baja:", error);
+    return NextResponse.json({ error: "Error al eliminar la ficha de baja" }, { status: 500 });
+  }
+}
+
