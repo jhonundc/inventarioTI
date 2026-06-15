@@ -627,160 +627,492 @@ export default function FichaSoportePage() {
     const condicion = (ficha.Condicion?.Condicion || "").toLowerCase();
     const estado = (ficha.Estado?.EstadoBien || "").toLowerCase();
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Ficha ${ficha.NumeroFicha}</title>
-        <style>
-          @page { size: A4 portrait; margin: 12mm; }
-          * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
-          body { background: white; color: #1e293b; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .container { max-width: 100%; padding: 0; }
-          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1e293b; padding-bottom: 12px; margin-bottom: 16px; }
-          .header-left p { font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-          .header-left h2 { font-size: 15px; font-weight: 800; color: #1e293b; margin-top: 4px; }
-          .header-right { text-align: right; }
-          .ficha-num { font-size: 11px; font-weight: bold; background: #f1f5f9; padding: 4px 12px; border-radius: 4px; border: 1px solid #cbd5e1; display: inline-block; }
-          .fecha { font-size: 9px; color: #64748b; margin-top: 6px; }
-          .info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 14px; }
-          .info-grid .label { font-weight: bold; color: #64748b; font-size: 9px; text-transform: uppercase; display: block; }
-          .info-grid .value { font-size: 11px; color: #1e293b; font-weight: 500; }
-          .section-header { font-size: 10px; font-weight: bold; background: #1e293b; color: white; padding: 5px 10px; text-transform: uppercase; letter-spacing: 0.5px; border-radius: 4px 4px 0 0; margin-top: 10px; }
-          .section-body { border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; margin-bottom: 10px; }
-          .check-row { display: flex; gap: 20px; align-items: center; }
-          .check-item { display: flex; align-items: center; gap: 6px; font-size: 11px; }
-          table { width: 100%; border-collapse: collapse; font-size: 10px; }
-          th { background: #f1f5f9; font-weight: bold; padding: 6px 8px; border: 1px solid #e2e8f0; text-align: left; }
-          td { padding: 6px 8px; border: 1px solid #e2e8f0; }
-          .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-          .text-block { min-height: 50px; white-space: pre-wrap; font-size: 11px; }
-          .firmas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 80px; text-align: center; }
-          .firma-item { border-top: 1px solid #64748b; padding-top: 8px; }
-          .firma-item p { font-size: 10px; font-weight: bold; color: #475569; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <div class="header-left">
-              <p>UNIDAD DE ESTADISTICA E INFORMATICA</p>
-              <h2>FICHA DE SOPORTE TÉCNICO</h2>
-            </div>
-            <div class="header-right">
-              <span class="ficha-num">Nº ${ficha.NumeroFicha || "-"}</span>
-              <p class="fecha">Fecha: ${ficha.FechaRegistro ? new Date(ficha.FechaRegistro).toLocaleString() : "-"}</p>
-            </div>
-          </div>
+    const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Ficha de Soporte Técnico</title>
 
-          <div class="info-grid">
-            <div><span class="label">Responsable del Bien</span><span class="value">${ficha.Responsable || "-"}</span></div>
-            <div><span class="label">Dependencia (Área)</span><span class="value">${ficha.Dependencia || "-"}</span></div>
-            <div><span class="label">Ambiente</span><span class="value">${ficha.Ambiente || "-"}</span></div>
-          </div>
+<style>
 
-          <div class="section-header">I. Tipo del Bien</div>
-          <div class="section-body">
-            <div class="check-row">
-              <span class="check-item">${tipoBien === "informático" || tipoBien === "informatico" ? checkedBox : uncheckedBox} Informático</span>
-              <span class="check-item">${tipoBien === "comunicación" || tipoBien === "comunicacion" ? checkedBox : uncheckedBox} Comunicación</span>
-              <span class="check-item">${tipoBien === "eléctrico" || tipoBien === "electrico" ? checkedBox : uncheckedBox} Eléctrico</span>
+@page{
+    size: A4;
+    margin: 20mm;
+}
+
+*{
+    box-sizing: border-box;
+}
+
+body{
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    color:#000;
+    margin:0;
+    padding:0;
+}
+
+.container{
+    width:100%;
+    max-width:768px;
+    margin:0 auto;
+    padding:0 10px;
+}
+
+.page-header{
+    position:relative;
+    padding-top:100px;
+    margin-bottom:8px;
+}
+
+.corner-icon{
+    position:absolute;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.top-left{
+    width:90px;
+    height:90px;
+    top:0;
+    left:0;
+}
+
+.top-right{
+    width:80px;
+    height:80px;
+    top:0;
+    right:0;
+}
+
+.corner-icon img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+}
+
+.titulo{
+    text-align:center;
+    font-weight:bold;
+    font-size:18px;
+    margin-bottom:10px;
+    line-height:1.1;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    line-height:1.2;
+}
+
+td,
+th{
+    border:1px solid #000;
+    padding:4px;
+    vertical-align:middle;
+}
+
+.seccion{
+    margin-top:14px;
+    margin-bottom:5px;
+    font-weight:bold;
+    line-height:1.2;
+}
+
+.recuadro{
+    border:2px solid #000;
+    min-height:70px;
+    padding:12px;
+    line-height:1.2;
+}
+
+.firmas{
+    margin-top:42px;
+    display:flex;
+    justify-content:space-between;
+    gap:18px;
+}
+
+.firma{
+    width:30%;
+    text-align:center;
+}
+
+.firma-line{
+    border-top:1px solid #000;
+    margin-top:24px;
+    padding-top:6px;
+    min-height:72px;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    gap:4px;
+}
+
+.firma-text{
+    font-weight:bold;
+    font-size:10px;
+    line-height:1.2;
+}
+
+.fecha{
+    width:120px;
+    text-align:center;
+    font-weight:bold;
+    line-height:1.2;
+}
+
+.sin-borde{
+    border:none !important;
+}
+
+.caja{
+    width:18px;
+    height:18px;
+    border:2px solid #000;
+    display:inline-block;
+    vertical-align:middle;
+    margin-left:6px;
+}
+
+.texto-centro{
+    text-align:center;
+}
+
+.recuadro{
+    border:2px solid #000;
+    min-height:80px;
+    padding:15px;
+}
+
+.firmas{
+    margin-top:60px;
+    display:flex;
+    justify-content:space-between;
+    gap:20px;
+}
+
+.firma{
+    width:30%;
+    text-align:center;
+}
+
+.linea{
+    border-top:1px solid #000;
+    padding-top:5px;
+}
+
+.fecha{
+    width:120px;
+    text-align:center;
+    font-weight:bold;
+}
+
+.footer{
+    margin-top:40px;
+}
+
+@media print{
+
+    .no-print{
+        display:none !important;
+    }
+
+    body{
+        margin:0;
+    }
+
+    .container{
+        width:100%;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="page-header">
+        <div class="corner-icon top-left"><img src="/logo1.png" alt="Logo 1" /></div>
+        <div class="corner-icon top-right"><img src="/logo2.png" alt="Logo 2" /></div>
+        <div class="titulo">
+            FICHA DE SOPORTE TECNICO
+        </div>
+    </div>
+
+    <!-- ENCABEZADO -->
+
+    <table>
+        <tr>
+
+            <td style="width:20%;">
+                <b>Unidad Organica :</b>
+            </td>
+
+            <td>${ficha.UnidadOrganica || ''}</td>
+
+            <td class="fecha">
+                FECHA
+                <br><br>
+                ${ficha.FechaRegistro ? new Date(ficha.FechaRegistro).toLocaleDateString() : ''}
+            </td>
+
+        </tr>
+    </table>
+
+    <!-- RESPONSABLE -->
+
+    <div class="seccion">
+        USUARIO RESPONSABLE DEL BIEN:
+    </div>
+
+    <table>
+
+        <tr>
+            <td style="width:15%;">
+                <b>Responsable:</b>
+            </td>
+            <td>${ficha.Responsable || ''}</td>
+        </tr>
+
+        <tr>
+            <td>
+                <b>Dependencia:</b>
+            </td>
+            <td>${ficha.Dependencia || ''}</td>
+        </tr>
+
+        <tr>
+            <td>
+                <b>Ambiente:</b>
+            </td>
+            <td>${ficha.Ambiente || ''}</td>
+        </tr>
+
+    </table>
+
+    <!-- TIPO DE BIEN -->
+
+    <div class="seccion">
+        I. TIPO DEL BIEN
+    </div>
+
+    <table>
+        <tr>
+
+            <td class="sin-borde">
+                a) Informático
+                <span class="caja">${tipoBien === 'informático' || tipoBien === 'informatico' ? '✔' : ''}</span>
+            </td>
+
+            <td class="sin-borde">
+                b) Comunicación
+                <span class="caja">${tipoBien === 'comunicación' || tipoBien === 'comunicacion' ? '✔' : ''}</span>
+            </td>
+
+            <td class="sin-borde">
+                c) Eléctrico
+                <span class="caja">${tipoBien === 'eléctrico' || tipoBien === 'electrico' ? '✔' : ''}</span>
+            </td>
+
+        </tr>
+    </table>
+
+    <!-- DETALLE TECNICO -->
+
+    <div class="seccion">
+        II. DETALLE TECNICO
+    </div>
+
+    <table>
+
+        <tr>
+
+            <th rowspan="2" style="width:16%;">
+                CODIGO DE INVENTARIO
+            </th>
+
+            <th rowspan="2" style="width:16%;">
+                CODIGO PATRIMONIAL
+            </th>
+
+            <th rowspan="2" style="width:22%;">
+                DESCRIPCION
+            </th>
+
+            <th colspan="3">
+                DETALLE TECNICO
+            </th>
+
+        </tr>
+
+        <tr>
+
+            <th>MARCA</th>
+            <th>MODELO</th>
+            <th>SERIE</th>
+
+        </tr>
+
+        <tr>
+
+            <td style="height:50px;">${ficha.Bien?.CodigoInventario || ''}</td>
+            <td>${ficha.Bien?.CodigoPatrimonial || ''}</td>
+            <td>${ficha.Bien?.Descripcion || ''}</td>
+            <td>${ficha.Bien?.Marca?.Marca || ''}</td>
+            <td>${ficha.Bien?.Modelo?.Modelo || ''}</td>
+            <td>${ficha.Bien?.NumeroSerie || ''}</td>
+
+        </tr>
+
+    </table>
+
+    <!-- CONDICION -->
+
+    <div class="seccion">
+        III. CONDICION DEL BIEN
+    </div>
+
+    <table>
+
+        <tr>
+            <td class="sin-borde">
+                Operativo
+                <span class="caja">${condicion === 'operativo' ? '✔' : ''}</span>
+            </td>
+        </tr>
+
+        <tr>
+            <td class="sin-borde">
+                Inoperativo
+                <span class="caja">${condicion === 'inoperativo' ? '✔' : ''}</span>
+            </td>
+        </tr>
+
+    </table>
+
+    <!-- ESTADO -->
+
+    <div class="seccion">
+        IV. ESTADO DEL BIEN
+    </div>
+
+    <table>
+
+        <tr>
+
+            <td class="sin-borde">
+                Bueno
+                <span class="caja">${estado === 'bueno' ? '✔' : ''}</span>
+            </td>
+
+            <td class="sin-borde">
+                Regular
+                <span class="caja">${estado === 'regular' ? '✔' : ''}</span>
+            </td>
+
+            <td class="sin-borde">
+                Malo por reparar
+                <span class="caja">${estado === 'reparar' ? '✔' : ''}</span>
+            </td>
+
+            <td class="sin-borde">
+                Malo para baja
+                <span class="caja">${estado === 'baja' ? '✔' : ''}</span>
+            </td>
+
+        </tr>
+
+    </table>
+
+    <!-- TRABAJOS -->
+
+    <div class="seccion">
+        V. TRABAJOS REALIZADOS
+    </div>
+
+    <div class="recuadro">
+
+        ${ficha.TrabajosRealizados || ''}
+
+    </div>
+
+    <!-- DIAGNOSTICO -->
+
+    <div class="seccion">
+        VI. DIAGNOSTICO
+    </div>
+
+    <div class="recuadro">
+
+        ${ficha.Diagnostico || ''}
+
+    </div>
+
+    <!-- RECOMENDACION -->
+
+    <div class="seccion">
+        VII. RECOMENDACIÓN
+    </div>
+
+    <div class="recuadro">
+
+        ${ficha.Recomendacion || ''}
+
+    </div>
+
+    <!-- FIRMAS -->
+
+    <div class="firmas">
+
+        <div class="firma">
+            <div class="firma-line">
+                <span class="firma-text">RESPONSABLE DE SOPORTE TECNICO</span>
             </div>
-          </div>
-
-          <div class="section-header">II. Detalle Técnico del Bien</div>
-          <div class="section-body" style="padding:0;">
-            <table>
-              <thead><tr>
-                <th>Cód. Inventario</th><th>Cód. Patrimonial</th><th>Bien / Descripción</th><th>Marca</th><th>Modelo</th><th>Nº Serie</th>
-              </tr></thead>
-              <tbody><tr>
-                <td>${ficha.Bien?.CodigoInventario || "-"}</td>
-                <td>${ficha.Bien?.CodigoPatrimonial || "-"}</td>
-                <td>${ficha.Bien?.Descripcion || "-"}</td>
-                <td>${ficha.Bien?.Marca?.Marca || "-"}</td>
-                <td>${ficha.Bien?.Modelo?.Modelo || "-"}</td>
-                <td>${ficha.Bien?.NumeroSerie || "-"}</td>
-              </tr></tbody>
-            </table>
-          </div>
-
-          <div class="two-col">
-            <div>
-              <div class="section-header">III. Condición del Bien</div>
-              <div class="section-body">
-                <div class="check-row">
-                  <span class="check-item">${condicion === "operativo" ? checkedBox : uncheckedBox} Operativo</span>
-                  <span class="check-item">${condicion === "inoperativo" ? checkedBox : uncheckedBox} Inoperativo</span>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div class="section-header">IV. Estado del Bien</div>
-              <div class="section-body">
-                <div class="check-row" style="flex-wrap:wrap;gap:8px 20px;">
-                  <span class="check-item">${estado === "bueno" ? checkedBox : uncheckedBox} Bueno</span>
-                  <span class="check-item">${estado === "regular" ? checkedBox : uncheckedBox} Regular</span>
-                  <span class="check-item">${estado === "reparar" ? checkedBox : uncheckedBox} Reparar</span>
-                  <span class="check-item">${estado === "baja" ? checkedBox : uncheckedBox} Baja</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section-header">V. Trabajos Realizados</div>
-          <div class="section-body"><div class="text-block">${ficha.TrabajosRealizados || "-"}</div></div>
-
-          <div class="two-col">
-            <div>
-              <div class="section-header">VI. Diagnóstico</div>
-              <div class="section-body"><div class="text-block">${ficha.Diagnostico || "-"}</div></div>
-            </div>
-            <div>
-              <div class="section-header">VII. Recomendación</div>
-              <div class="section-body"><div class="text-block">${ficha.Recomendacion || "-"}</div></div>
-            </div>
-          </div>
-
-          <div class="firmas">
-            <div class="firma-item"><p>Responsable de Soporte Técnico</p></div>
-            <div class="firma-item"><p>Jefe(e) Unidad Estadística e Informática</p></div>
-            <div class="firma-item"><p>Área Usuaria</p></div>
-          </div>
         </div>
 
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-              setTimeout(function() {
-                if (window.parent && window.frameElement) {
-                  window.parent.document.body.removeChild(window.frameElement);
-                }
-              }, 1000);
-            }, 300);
-          };
-        </script>
-      </body>
-      </html>
-    `;
+        <div class="firma">
+            <div class="firma-line">
+                <span class="firma-text">JEFE UNIDAD DE ESTADISTICA E INFORMATICA</span>
+            </div>
+        </div>
 
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "none";
-    document.body.appendChild(iframe);
+        <div class="firma">
+            <div class="firma-line">
+                <span class="firma-text">AREA USUARIA</span>
+            </div>
+        </div>
 
-    const iframeDoc = iframe.contentWindow?.document;
-    if (iframeDoc) {
-      iframeDoc.open();
-      iframeDoc.write(htmlContent);
-      iframeDoc.close();
+    </div>
+
+    <div class="footer">
+        &nbsp;
+    </div>
+
+</div>
+
+</body>
+</html>`;
+
+    const printWindow = window.open("", "FichaDeSoporte", "width=900,height=1200");
+    if (!printWindow) {
+      alert("No se pudo abrir la ventana de impresión. Verifique el bloqueador de ventanas emergentes.");
+      return;
     }
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.onload = () => {
+      printWindow.print();
+      setTimeout(() => {
+        printWindow.close();
+      }, 500);
+    };
   };
 
   // =========================
@@ -1795,168 +2127,118 @@ export default function FichaSoportePage() {
       {/* CONTENEDOR OCULTO PARA IMPRESIÓN DIRECTA SIN ESPERAR ANIMACIONES */}
       <div style={{ display: 'none' }}>
         <div id="hidden-printable-ficha">
-           {selectedFichaForPrint && (
-             <div className="bg-white p-8 max-w-4xl mx-auto space-y-6 text-slate-800 text-sm" style={{ width: '210mm', minHeight: '297mm' }}>
-                <div className="flex justify-between items-center border-b-2 border-slate-900 pb-4">
-                  <div className="text-left">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">UNIDAD DE ESTADISTICA E INFORMATICA</p>
-                    <h2 className="text-base font-extrabold text-slate-800 mt-1">FICHA DE SOPORTE TÉCNICO</h2>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold bg-slate-100 px-3 py-1 rounded border text-slate-800 inline-block">
-                      Nº {selectedFichaForPrint.NumeroFicha || "-"}
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-1.5">
-                      Fecha: {selectedFichaForPrint.FechaRegistro ? new Date(selectedFichaForPrint.FechaRegistro).toLocaleString() : "-"}
-                    </p>
-                  </div>
+          {selectedFichaForPrint ? (
+            <div>
+              <style>{`@page{size:A4;margin:20mm;} *{box-sizing:border-box;} body{font-family:Arial, Helvetica, sans-serif;font-size:11px;color:#000;margin:0;padding:0;} .container{width:88%;margin:0 auto;} .titulo{text-align:center;font-weight:bold;font-size:18px;margin-bottom:25px;} table{width:100%;border-collapse:collapse;} td, th{border:1px solid #000;padding:6px;vertical-align:middle;} .sin-borde{border:none !important;} .seccion{margin-top:18px;margin-bottom:8px;font-weight:bold;} .caja{width:18px;height:18px;border:2px solid #000;display:inline-block;vertical-align:middle;margin-left:6px;} .texto-centro{text-align:center;} .recuadro{border:2px solid #000;min-height:80px;padding:15px;} .firmas{margin-top:90px;display:flex;justify-content:space-between;gap:20px;} .firma{width:30%;text-align:center;} .linea{border-top:1px solid #000;padding-top:5px;} .fecha{width:120px;text-align:center;font-weight:bold;} .footer{margin-top:40px;} @media print{ .no-print{display:none !important;} body{margin:0;} .container{width:100%;} }`}</style>
+
+              <div className="container">
+
+                <div className="titulo">FICHA DE SOPORTE TECNICO</div>
+
+                <table>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '20%' }}><b>Unidad Organica :</b></td>
+                      <td>{selectedFichaForPrint.UnidadOrganica || ''}</td>
+                      <td className="fecha">FECHA<br /><br />{selectedFichaForPrint.FechaRegistro ? new Date(selectedFichaForPrint.FechaRegistro).toLocaleDateString() : ''}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div className="seccion">USUARIO RESPONSABLE DEL BIEN:</div>
+
+                <table>
+                  <tbody>
+                    <tr>
+                      <td style={{ width: '15%' }}><b>Responsable:</b></td>
+                      <td>{selectedFichaForPrint.Responsable || ''}</td>
+                    </tr>
+                    <tr>
+                      <td><b>Dependencia:</b></td>
+                      <td>{selectedFichaForPrint.Dependencia || ''}</td>
+                    </tr>
+                    <tr>
+                      <td><b>Ambiente:</b></td>
+                      <td>{selectedFichaForPrint.Ambiente || ''}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div className="seccion">I. TIPO DEL BIEN</div>
+
+                <table>
+                  <tbody>
+                    <tr>
+                      <td className="sin-borde">a) Informático <span className="caja">{(selectedFichaForPrint.TipoBien || '').toLowerCase().includes('inform') ? '✔' : ''}</span></td>
+                      <td className="sin-borde">b) Comunicación <span className="caja">{(selectedFichaForPrint.TipoBien || '').toLowerCase().includes('comunic') ? '✔' : ''}</span></td>
+                      <td className="sin-borde">c) Eléctrico <span className="caja">{(selectedFichaForPrint.TipoBien || '').toLowerCase().includes('electr') ? '✔' : ''}</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div className="seccion">II. DETALLE TECNICO</div>
+                <table>
+                  <tr>
+                    <th rowSpan={2} style={{ width: '16%' }}>CODIGO DE INVENTARIO</th>
+                    <th rowSpan={2} style={{ width: '16%' }}>CODIGO PATRIMONIAL</th>
+                    <th rowSpan={2} style={{ width: '22%' }}>DESCRIPCION</th>
+                    <th colSpan={3}>DETALLE TECNICO</th>
+                  </tr>
+                  <tr>
+                    <th>MARCA</th>
+                    <th>MODELO</th>
+                    <th>SERIE</th>
+                  </tr>
+                  <tr>
+                    <td style={{ height: '50px' }}>{selectedFichaForPrint.Bien?.CodigoInventario || ''}</td>
+                    <td>{selectedFichaForPrint.Bien?.CodigoPatrimonial || ''}</td>
+                    <td>{selectedFichaForPrint.Bien?.Descripcion || ''}</td>
+                    <td>{selectedFichaForPrint.Bien?.Marca?.Marca || ''}</td>
+                    <td>{selectedFichaForPrint.Bien?.Modelo?.Modelo || ''}</td>
+                    <td>{selectedFichaForPrint.Bien?.NumeroSerie || ''}</td>
+                  </tr>
+                </table>
+
+                <div className="seccion">III. CONDICION DEL BIEN</div>
+                <table>
+                  <tr>
+                    <td className="sin-borde">Operativo <span className="caja">{selectedFichaForPrint.Condicion?.Condicion?.toLowerCase() === 'operativo' ? '✔' : ''}</span></td>
+                  </tr>
+                  <tr>
+                    <td className="sin-borde">Inoperativo <span className="caja">{selectedFichaForPrint.Condicion?.Condicion?.toLowerCase() === 'inoperativo' ? '✔' : ''}</span></td>
+                  </tr>
+                </table>
+
+                <div className="seccion">IV. ESTADO DEL BIEN</div>
+                <table>
+                  <tr>
+                    <td className="sin-borde">Bueno <span className="caja">{selectedFichaForPrint.Estado?.EstadoBien?.toLowerCase() === 'bueno' ? '✔' : ''}</span></td>
+                    <td className="sin-borde">Regular <span className="caja">{selectedFichaForPrint.Estado?.EstadoBien?.toLowerCase() === 'regular' ? '✔' : ''}</span></td>
+                    <td className="sin-borde">Malo por reparar <span className="caja">{['reparar', 'malo por reparar'].includes((selectedFichaForPrint.Estado?.EstadoBien || '').toLowerCase()) ? '✔' : ''}</span></td>
+                    <td className="sin-borde">Malo para baja <span className="caja">{['baja', 'malo para baja'].includes((selectedFichaForPrint.Estado?.EstadoBien || '').toLowerCase()) ? '✔' : ''}</span></td>
+                  </tr>
+                </table>
+
+                <div className="seccion">V. TRABAJOS REALIZADOS</div>
+                <div className="recuadro">{selectedFichaForPrint.TrabajosRealizados || ''}</div>
+
+                <div className="seccion">VI. DIAGNOSTICO</div>
+                <div className="recuadro">{selectedFichaForPrint.Diagnostico || ''}</div>
+
+                <div className="seccion">VII. RECOMENDACIÓN</div>
+                <div className="recuadro">{selectedFichaForPrint.Recomendacion || ''}</div>
+
+                <div className="firmas">
+                  <div className="firma"><div className="linea">RESPONSABLE DE SOPORTE TECNICO</div></div>
+                  <div className="firma"><div className="linea">JEFE UNIDAD DE ESTADISTICA E INFORMATICA</div></div>
+                  <div className="firma"><div className="linea">AREA USUARIA</div></div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 text-[11px] bg-slate-50 p-3 rounded border">
-                  <div>
-                    <span className="font-bold block text-slate-500">RESPONSABLE DEL BIEN</span>
-                    <span className="font-medium text-xs text-slate-800">{selectedFichaForPrint.Responsable || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="font-bold block text-slate-500">DEPENDENCIA (ÁREA)</span>
-                    <span className="font-medium text-xs text-slate-800">{selectedFichaForPrint.Dependencia || "-"}</span>
-                  </div>
-                  <div>
-                    <span className="font-bold block text-slate-500">AMBIENTE</span>
-                    <span className="font-medium text-xs text-slate-800">{selectedFichaForPrint.Ambiente || "-"}</span>
-                  </div>
-                </div>
+                <div className="footer">&nbsp;</div>
 
-                <div>
-                  <h3 className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-1 uppercase tracking-wider rounded-t">
-                    I. Tipo del Bien
-                  </h3>
-                  <div className="border border-t-0 p-3 rounded-b flex gap-6 text-xs">
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" checked={selectedFichaForPrint.TipoBien?.toLowerCase() === "informático" || selectedFichaForPrint.TipoBien?.toLowerCase() === "informatico"} readOnly className="rounded text-blue-600 pointer-events-none" />
-                      <span>Informático</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" checked={selectedFichaForPrint.TipoBien?.toLowerCase() === "comunicación" || selectedFichaForPrint.TipoBien?.toLowerCase() === "comunicacion"} readOnly className="rounded text-blue-600 pointer-events-none" />
-                      <span>Comunicación</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" checked={selectedFichaForPrint.TipoBien?.toLowerCase() === "eléctrico" || selectedFichaForPrint.TipoBien?.toLowerCase() === "electrico"} readOnly className="rounded text-blue-600 pointer-events-none" />
-                      <span>Eléctrico</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-1 uppercase tracking-wider rounded-t">
-                    II. Detalle Técnico del Bien
-                  </h3>
-                  <div className="border border-t-0 rounded-b overflow-hidden">
-                    <table className="w-full text-[11px] text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-100 border-b">
-                          <th className="p-2 border-r font-bold">Código Inventario</th>
-                          <th className="p-2 border-r font-bold">Código Patrimonial</th>
-                          <th className="p-2 border-r font-bold">Bien / Descripción</th>
-                          <th className="p-2 border-r font-bold">Marca</th>
-                          <th className="p-2 border-r font-bold">Modelo</th>
-                          <th className="p-2 font-bold">Nº Serie</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="p-2 border-r border-b">{selectedFichaForPrint.Bien?.CodigoInventario || "-"}</td>
-                          <td className="p-2 border-r border-b">{selectedFichaForPrint.Bien?.CodigoPatrimonial || "-"}</td>
-                          <td className="p-2 border-r border-b">{selectedFichaForPrint.Bien?.Descripcion || "-"}</td>
-                          <td className="p-2 border-r border-b">{selectedFichaForPrint.Bien?.Marca?.Marca || "-"}</td>
-                          <td className="p-2 border-r border-b">{selectedFichaForPrint.Bien?.Modelo?.Modelo || "-"}</td>
-                          <td className="p-2 border-b">{selectedFichaForPrint.Bien?.NumeroSerie || "-"}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-1 uppercase tracking-wider rounded-t">
-                      III. Condición del Bien
-                    </h3>
-                    <div className="border border-t-0 p-3 rounded-b flex gap-6 text-xs">
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={selectedFichaForPrint.Condicion?.Condicion?.toLowerCase() === "operativo"} readOnly className="rounded text-blue-600 pointer-events-none" />
-                        <span>Operativo</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={selectedFichaForPrint.Condicion?.Condicion?.toLowerCase() === "inoperativo"} readOnly className="rounded text-blue-600 pointer-events-none" />
-                        <span>Inoperativo</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-1 uppercase tracking-wider rounded-t">
-                      IV. Estado del Bien
-                    </h3>
-                    <div className="border border-t-0 p-3 rounded-b grid grid-cols-2 gap-2 text-xs">
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={selectedFichaForPrint.Estado?.EstadoBien?.toLowerCase() === "bueno"} readOnly className="rounded text-blue-600 pointer-events-none" /><span>Bueno</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={selectedFichaForPrint.Estado?.EstadoBien?.toLowerCase() === "reparar"} readOnly className="rounded text-blue-600 pointer-events-none" /><span>Reparar</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={selectedFichaForPrint.Estado?.EstadoBien?.toLowerCase() === "regular"} readOnly className="rounded text-blue-600 pointer-events-none" /><span>Regular</span></label>
-                      <label className="flex items-center gap-2"><input type="checkbox" checked={selectedFichaForPrint.Estado?.EstadoBien?.toLowerCase() === "baja"} readOnly className="rounded text-blue-600 pointer-events-none" /><span>Baja</span></label>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-1 uppercase tracking-wider rounded-t">
-                    V. Descripción del Problema
-                  </h3>
-                  <div className="border border-t-0 p-3 rounded-b text-xs min-h-[60px] whitespace-pre-wrap">
-                    {selectedFichaForPrint.DescripcionProblema || "-"}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-1 uppercase tracking-wider rounded-t">
-                    VI. Trabajos Realizados
-                  </h3>
-                  <div className="border border-t-0 p-3 rounded-b text-xs min-h-[60px] whitespace-pre-wrap">
-                    {selectedFichaForPrint.TrabajosRealizados || "-"}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-1 uppercase tracking-wider rounded-t">
-                      VII. Diagnóstico
-                    </h3>
-                    <div className="border border-t-0 p-3 rounded-b text-xs min-h-[60px] whitespace-pre-wrap">
-                      {selectedFichaForPrint.Diagnostico || "-"}
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-[11px] font-bold bg-slate-800 text-white px-2.5 py-1 uppercase tracking-wider rounded-t">
-                      VIII. Recomendación
-                    </h3>
-                    <div className="border border-t-0 p-3 rounded-b text-xs min-h-[60px] whitespace-pre-wrap">
-                      {selectedFichaForPrint.Recomendacion || "-"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 pt-20 pb-4 text-center">
-                  <div className="border-t border-slate-400 pt-2">
-                    <p className="text-[11px] font-bold text-slate-600">Responsable de Soporte Técnico</p>
-                  </div>
-                  <div className="border-t border-slate-400 pt-2">
-                    <p className="text-[11px] font-bold text-slate-600">Jefe(e) Unidad Estadística e Informática</p>
-                  </div>
-                  <div className="border-t border-slate-400 pt-2">
-                    <p className="text-[11px] font-bold text-slate-600">Área Usuaria</p>
-                  </div>
-                </div>
-             </div>
-           )}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

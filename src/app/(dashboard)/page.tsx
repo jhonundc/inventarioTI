@@ -61,27 +61,42 @@ export default function DashboardPage() {
 
   const isSupport = role.includes("soporte") || role.includes("support");
 
+  const defaultTotals = {
+    totalBienes: 0,
+    totalBienesOperativos: 0,
+    totalBienesInoperativos: 0,
+    totalBajas: 0,
+    totalSoporte: 0,
+    totalSoportePendiente: 0,
+    totalSoporteProceso: 0,
+    totalSoporteAtendido: 0,
+    totalSoporteDerivado: 0,
+  };
+
+  const totals = data?.totales ?? defaultTotals;
+  const formatNumber = (value?: number) => Number(value ?? 0).toLocaleString();
+
   const stats = data
     ? isSupport
       ? [
-          { title: "Total Fichas", value: data.totales.totalSoporte.toLocaleString(), icon: Ticket, color: "bg-blue-500" },
-          { title: "Pendientes", value: data.totales.totalSoportePendiente.toLocaleString(), icon: Clock, color: "bg-amber-500" },
-          { title: "En Progreso", value: data.totales.totalSoporteProceso.toLocaleString(), icon: Wrench, color: "bg-indigo-500" },
-          { title: "Atendidas", value: data.totales.totalSoporteAtendido.toLocaleString(), icon: CheckCircle, color: "bg-green-500" },
+          { title: "Total Fichas", value: formatNumber(totals.totalSoporte), icon: Ticket, color: "bg-blue-500" },
+          { title: "Pendientes", value: formatNumber(totals.totalSoportePendiente), icon: Clock, color: "bg-amber-500" },
+          { title: "En Progreso", value: formatNumber(totals.totalSoporteProceso), icon: Wrench, color: "bg-indigo-500" },
+          { title: "Atendidas", value: formatNumber(totals.totalSoporteAtendido), icon: CheckCircle, color: "bg-green-500" },
         ]
       : [
-          { title: "Total Equipos", value: data.totales.totalBienes.toLocaleString(), icon: Boxes, color: "bg-blue-500" },
-          { title: "Operativos", value: data.totales.totalBienesOperativos.toLocaleString(), icon: CheckCircle, color: "bg-green-500" },
-          { title: "Inoperativos", value: data.totales.totalBienesInoperativos.toLocaleString(), icon: XCircle, color: "bg-red-500" },
-          { title: "Dados de Baja", value: data.totales.totalBajas.toLocaleString(), icon: Trash2, color: "bg-gray-500" },
+          { title: "Total Equipos", value: formatNumber(totals.totalBienes), icon: Boxes, color: "bg-blue-500" },
+          { title: "Operativos", value: formatNumber(totals.totalBienesOperativos), icon: CheckCircle, color: "bg-green-500" },
+          { title: "Inoperativos", value: formatNumber(totals.totalBienesInoperativos), icon: XCircle, color: "bg-red-500" },
+          { title: "Dados de Baja", value: formatNumber(totals.totalBajas), icon: Trash2, color: "bg-gray-500" },
         ]
     : [];
 
   const statusData = data
     ? [
-        { name: "Operativos", value: data.totales.totalBienesOperativos },
-        { name: "Inoperativos", value: data.totales.totalBienesInoperativos },
-        { name: "Baja", value: data.totales.totalBajas },
+        { name: "Operativos", value: totals.totalBienesOperativos },
+        { name: "Inoperativos", value: totals.totalBienesInoperativos },
+        { name: "Baja", value: totals.totalBajas },
       ]
     : [];
 
@@ -89,7 +104,7 @@ export default function DashboardPage() {
 
   // Build area chart data sorted descending
   const areaChartData = data
-    ? Object.entries(data.fichasPorArea)
+    ? Object.entries(data.fichasPorArea ?? {})
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value)
     : [];

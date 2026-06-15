@@ -125,8 +125,8 @@ export default function ComponenteFormModal({ componente, open, onOpenChange, re
   });
 
   const selectedMarcaName = marcas?.find(
-    (m: any) => m.Marca === selectedMarca
-  )?.Marca;
+    (m: any) => String(m.IdMarca) === String(selectedMarca)
+  )?.Marca || (typeof selectedMarca === "object" ? selectedMarca?.Marca : "");
 
   const selectedBienName = bienes?.find(
     (b: any) => String(b.IdBien) === watch("IdBien")
@@ -158,7 +158,7 @@ export default function ComponenteFormModal({ componente, open, onOpenChange, re
                     IdComponente: source.IdComponente ? String(source.IdComponente) : "",
                     TipoEquipo: source.TipoEquipo || "",
                     DescripcionModelo: source.DescripcionModelo || "",
-                    Marca: source.Marca || "",
+                    Marca: typeof source.Marca === "object" ? source.Marca?.Marca || "" : source.Marca || "",
                     Serie: source.Serie || "",
                     CodigoPatrimonial: source.CodigoPatrimonial || "",
                     ProcesadorEspecificaciones: source.ProcesadorEspecificaciones || "",
@@ -186,7 +186,7 @@ export default function ComponenteFormModal({ componente, open, onOpenChange, re
             IdComponente: componente.IdComponente ? String(componente.IdComponente) : "",
             TipoEquipo: componente.TipoEquipo || "",
             DescripcionModelo: componente.DescripcionModelo || "",
-            Marca: componente.Marca || "",
+            Marca: typeof componente.Marca === "object" ? componente.Marca?.Marca || "" : componente.Marca || "",
             Serie: componente.Serie || "",
             CodigoPatrimonial: componente.CodigoPatrimonial || "",
             ProcesadorEspecificaciones: componente.ProcesadorEspecificaciones || "",

@@ -22,6 +22,8 @@ const fetchCategorias = async () => {
 export default function CategoriasPage() {
   const [open, setOpen] = useState(false);
   const [editingCategoria, setEditingCategoria] = useState<any>(null);
+  const [viewCategoria, setViewCategoria] = useState<any>(null);
+  const [message, setMessage] = useState<string>("");
   const queryClient = useQueryClient();
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
@@ -57,6 +59,25 @@ export default function CategoriasPage() {
     setEditingCategoria(cat);
     setValue("CategoriaBien", cat.CategoriaBien);
     setOpen(true);
+  };
+
+  const handleView = (cat: any) => {
+    setViewCategoria(cat);
+  };
+
+  const handleDeactivate = async (id: number) => {
+    if (!confirm("¿Desea desactivar esta categoría?")) return;
+    try {
+      const res = await fetch(`/api/categorias?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Error al desactivar la categoría");
+      }
+      setMessage("Categoría desactivada correctamente.");
+      queryClient.invalidateQueries({ queryKey: ["categorias"] });
+    } catch (error: any) {
+      setMessage(error?.message || "No se pudo desactivar la categoría.");
+    }
   };
 
   const handleNew = () => {
@@ -114,7 +135,34 @@ export default function CategoriasPage() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={!!viewCategoria} onOpenChange={(val) => {
+          if (!val) setViewCategoria(null);
+        }}>
+          <DialogContent className="bg-white sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-slate-800">Detalle de la Categoría</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <p className="text-sm text-slate-500">Nombre</p>
+                <p className="mt-1 text-base text-slate-800">{viewCategoria?.CategoriaBien || "-"}</p>
+              </div>
+              <div className="flex justify-end mt-6">
+                <Button type="button" variant="outline" onClick={() => setViewCategoria(null)} className="border-slate-200 text-slate-700 hover:bg-slate-50">
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
+
+      {message ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {message}
+        </div>
+      ) : null}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {isLoading ? (
@@ -138,6 +186,7 @@ export default function CategoriasPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                          onClick={() => handleView(cat)}
                           title="Ver"
                         >
                           <Eye className="h-4 w-4" />
@@ -155,6 +204,7 @@ export default function CategoriasPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          onClick={() => handleDeactivate(cat.IdCategoria)}
                           title="Desactivar"
                         >
                           <Power className="h-4 w-4" />
@@ -163,6 +213,7 @@ export default function CategoriasPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeactivate(cat.IdCategoria)}
                           title="Eliminar"
                         >
                           <Trash2 className="h-4 w-4" />

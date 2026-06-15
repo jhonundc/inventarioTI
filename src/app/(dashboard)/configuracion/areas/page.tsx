@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Trash2, Edit, Eye, Power } from "lucide-react";
+import { Plus, Trash2, Edit, Eye, Power } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,8 @@ const fetchAreas = async () => {
 export default function AreasPage() {
   const [open, setOpen] = useState(false);
   const [editingArea, setEditingArea] = useState<any>(null);
+  const [viewArea, setViewArea] = useState<any>(null);
+  const [message, setMessage] = useState<string>("");
   const queryClient = useQueryClient();
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
@@ -33,12 +35,16 @@ export default function AreasPage() {
   const mutation = useMutation({
     mutationFn: async (data: any) => {
       const method = editingArea ? "PATCH" : "POST";
+      const body = editingArea ? { ...data, IdArea: editingArea.IdArea } : data;
       const res = await fetch("/api/areas", {
-        method: method,
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingArea ? { ...data, IdArea: editingArea.IdArea } : data),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`Error al ${editingArea ? "actualizar" : "crear"} el área`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || `Error al ${editingArea ? "actualizar" : "crear"} el área`);
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -46,6 +52,10 @@ export default function AreasPage() {
       setOpen(false);
       reset();
       setEditingArea(null);
+      setMessage(editingArea ? "Área actualizada correctamente." : "Área creada correctamente.");
+    },
+    onError: (error: any) => {
+      setMessage(error?.message || "Error al guardar el área.");
     },
   });
 
@@ -59,6 +69,31 @@ export default function AreasPage() {
     setValue("Piso", area.Piso || "");
     setValue("Referencia", area.Referencia || "");
     setOpen(true);
+  };
+
+  const handleView = (area: any) => {
+    setViewArea(area);
+  };
+
+  const handleDeactivate = async (id: number) => {
+    if (!confirm("¿Desea desactivar esta área?")) return;
+    try {
+      const res = await fetch(`/api/areas?id=${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Error al desactivar el área");
+      }
+      setMessage("Área desactivada correctamente.");
+      queryClient.invalidateQueries({ queryKey: ["areas"] });
+    } catch (error: any) {
+      setMessage(error?.message || "No se pudo desactivar el área.");
+    }
+  };
+
+  const handleModalClose = () => {
+    setOpen(false);
+    setEditingArea(null);
+    reset();
   };
 
   const handleNew = () => {
@@ -81,8 +116,15 @@ export default function AreasPage() {
         >
           <Plus className="mr-2 h-4 w-4" /> Nueva Área
         </Button>
+      </div>
 
-        <Dialog open={open} onOpenChange={(val) => {
+      {message ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {message}
+        </div>
+      ) : null}
+
+      <Dialog open={open} onOpenChange={(val) => {
           setOpen(val);
           if (!val) {
             setEditingArea(null);
@@ -124,7 +166,35 @@ export default function AreasPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+
+      <Dialog open={!!viewArea} onOpenChange={(val) => {
+          if (!val) setViewArea(null);
+        }}>
+          <DialogContent className="bg-white sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-slate-800">Detalle del Área</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <p className="text-sm text-slate-500">Nombre</p>
+                <p className="mt-1 text-base text-slate-800">{viewArea?.NombreArea || "-"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Piso</p>
+                <p className="mt-1 text-base text-slate-800">{viewArea?.Piso || "-"}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Referencia</p>
+                <p className="mt-1 text-base text-slate-800">{viewArea?.Referencia || "-"}</p>
+              </div>
+              <div className="flex justify-end mt-6">
+                <Button type="button" variant="outline" onClick={() => setViewArea(null)} className="border-slate-200 text-slate-700 hover:bg-slate-50">
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {isLoading ? (
@@ -152,6 +222,7 @@ export default function AreasPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50"
+                          onClick={() => handleView(area)}
                           title="Ver"
                         >
                           <Eye className="h-4 w-4" />
@@ -169,6 +240,7 @@ export default function AreasPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          onClick={() => handleDeactivate(area.IdArea)}
                           title="Desactivar"
                         >
                           <Power className="h-4 w-4" />
@@ -177,6 +249,7 @@ export default function AreasPage() {
                           variant="ghost" 
                           size="icon" 
                           className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeactivate(area.IdArea)}
                           title="Eliminar"
                         >
                           <Trash2 className="h-4 w-4" />

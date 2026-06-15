@@ -46,7 +46,6 @@ const adminMenuItems = [
     subItems: [
       { label: "Generar Ficha Soporte", href: "/soporte/ficha" },
       { label: "Generar Ficha de Baja", href: "/soporte/baja" },
-      { label: "Mantenimiento", href: "/soporte/mantenimiento" },
     ]
   },
   { icon: Users, label: "Usuarios", href: "/usuarios" },
@@ -68,7 +67,15 @@ const adminMenuItems = [
       { label: "Catálogo de Software", href: "/configuracion/software-catalogo" },
     ]
   },
-  { icon: BarChart, label: "Reportes", href: "/reportes" },
+  {
+    icon: BarChart,
+    label: "Reportes",
+    href: "/reportes",
+    subItems: [
+      { label: "Registro de inventario", href: "/reportes/inventario" },
+      { label: "Registro de fichas", href: "/reportes/fichas" },
+    ],
+  },
 ];
 
 const supportMenuItems = [
@@ -91,10 +98,17 @@ const supportMenuItems = [
     subItems: [
       { label: "Generar Ficha Soporte", href: "/soporte/ficha" },
       { label: "Generar Ficha de Baja", href: "/soporte/baja" },
-      { label: "Mantenimiento", href: "/soporte/mantenimiento" },
     ],
   },
-  { icon: BarChart, label: "Reportes", href: "/reportes" },
+  {
+    icon: BarChart,
+    label: "Reportes",
+    href: "/reportes",
+    subItems: [
+      { label: "Registro de inventario", href: "/reportes/inventario" },
+      { label: "Registro de fichas", href: "/reportes/fichas" },
+    ],
+  },
 ];
 
 export default function Sidebar() {

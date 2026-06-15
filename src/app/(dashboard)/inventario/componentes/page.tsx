@@ -153,7 +153,12 @@ export default function ComponentesPage() {
       {
         accessorKey: "Marca",
         header: "Marca",
-        cell: (info: any) => info.getValue() || "-",
+        cell: (info: any) => {
+          const value = info.getValue();
+          if (value === null || value === undefined || value === "") return "-";
+          if (typeof value === "object") return value.Marca ?? value.toString?.() ?? "-";
+          return String(value);
+        },
       },
       {
         accessorKey: "DescripcionModelo",

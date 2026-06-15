@@ -4,12 +4,12 @@ import { executeQuery } from "@/lib/db";
 // Dashboard estadísticas: totales por área, por mes y por día de soporte
 export async function GET(request: Request) {
   try {
-    const [countsResult, areaResult, mesResult, diaResult] = await Promise.all([
+    const [bienesResult, componentesResult, softwareResult, countsResult, areaResult, mesResult, diaResult] = await Promise.all([
+      executeQuery(`EXEC pro_ObtenerBienesCatalogo`),
+      executeQuery(`EXEC pro_ObtenerBienesComponentes`),
+      executeQuery(`EXEC pro_ObtenerBienesSoftware @Activo = @Activo`, { Activo: null }),
       executeQuery(`
         SELECT
-          (SELECT COUNT(*) FROM Bienes WHERE Activo = 1) AS totalBienes,
-          (SELECT COUNT(*) FROM Bienes b INNER JOIN CondicionesBien c ON b.IdCondicion = c.IdCondicion WHERE b.Activo = 1 AND c.Condicion = 'Operativo') AS totalBienesOperativos,
-          (SELECT COUNT(*) FROM Bienes b INNER JOIN CondicionesBien c ON b.IdCondicion = c.IdCondicion WHERE b.Activo = 1 AND c.Condicion = 'Inoperativo') AS totalBienesInoperativos,
           (SELECT COUNT(*) FROM BajasBienes) AS totalBajas,
           (SELECT COUNT(*) FROM SoporteTecnico) AS totalSoporte,
           (SELECT COUNT(*) FROM SoporteTecnico WHERE EstadoTicket = 'Pendiente') AS totalSoportePendiente,
@@ -46,7 +46,12 @@ export async function GET(request: Request) {
       `)
     ]);
 
-    const counts = countsResult.recordset[0];
+    const counts = countsResult.recordset[0] || {};
+    const totalBienes = bienesResult.recordset?.length ?? 0;
+    const totalBienesActivos = bienesResult.recordset?.filter((row: any) => row.Activo === 1 || row.Activo === true).length ?? 0;
+    const totalBienesInactivos = totalBienes - totalBienesActivos;
+    const totalComponentes = componentesResult.recordset?.length ?? 0;
+    const totalSoftware = softwareResult.recordset?.length ?? 0;
 
     // Formatear fichas por área
     const fichasPorArea: Record<string, number> = {};
@@ -70,9 +75,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       totales: {
-        totalBienes: counts.totalBienes,
-        totalBienesOperativos: counts.totalBienesOperativos,
-        totalBienesInoperativos: counts.totalBienesInoperativos,
+        totalBienes,
+        totalBienesActivos,
+        totalBienesInactivos,
+        totalComponentes,
+        totalSoftware,
         totalBajas: counts.totalBajas,
         totalSoporte: counts.totalSoporte,
         totalSoportePendiente: counts.totalSoportePendiente,

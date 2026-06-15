@@ -22,6 +22,7 @@ export default function ReportesPage() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState("");
+  const [selectedSection, setSelectedSection] = useState<"fichas" | "bienes" | null>(null);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -67,12 +68,15 @@ export default function ReportesPage() {
     }
   }, [role, pathname, router]);
 
-  const handleExport = async () => {
+  const handleExport = async (type: "fichas" | "bienes") => {
     setExporting(true);
     setMessage("");
 
     try {
-      const res = await fetch("/api/soporte/ficha/exportar");
+      const endpoint = type === "bienes" ? "/api/bienes/exportar" : "/api/soporte/ficha/exportar";
+      const filenamePrefix = type === "bienes" ? "inventario_bienes" : "fichas_soporte";
+
+      const res = await fetch(endpoint);
       if (!res.ok) {
         const error = await res.json().catch(() => null);
         throw new Error(error?.error || "Error al generar el archivo");
@@ -82,7 +86,7 @@ export default function ReportesPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `fichas_soporte_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.download = `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -103,14 +107,130 @@ export default function ReportesPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Reportes</h1>
             <p className="text-slate-500 text-sm">
-              Genera y descarga los reportes de soporte. Esta vista está orientada a usuarios de soporte.
+              Genera y descarga los reportes del sistema. En el menú de Reportes verás dos opciones separadas: registro de inventario y registro de fichas.
             </p>
           </div>
-          <Button onClick={handleExport} disabled={exporting} className="gap-2 bg-slate-800 hover:bg-slate-900">
-            <Download className="w-4 h-4" />
-            {exporting ? "Generando..." : "Descargar reporte CSV"}
-          </Button>
         </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="rounded-[32px] bg-slate-900 p-6 text-white shadow-sm">
+          <div className="mb-6">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Secciones</p>
+            <h2 className="mt-3 text-xl font-semibold">Reportes</h2>
+            <p className="mt-2 text-sm text-slate-300">Selecciona el reporte que deseas ver en detalle.</p>
+          </div>
+
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => setSelectedSection("bienes")}
+              className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+                selectedSection === "bienes"
+                  ? "border-sky-400 bg-slate-800"
+                  : "border-slate-700 bg-slate-950 hover:border-slate-500"
+              }`}
+            >
+              <span className="block text-sm font-semibold">Registros de bienes</span>
+              <span className="mt-1 block text-xs text-slate-400">Reporte de inventario</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedSection("fichas")}
+              className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+                selectedSection === "fichas"
+                  ? "border-sky-400 bg-slate-800"
+                  : "border-slate-700 bg-slate-950 hover:border-slate-500"
+              }`}
+            >
+              <span className="block text-sm font-semibold">Registros de fichas</span>
+              <span className="mt-1 block text-xs text-slate-400">Reporte de soporte técnico</span>
+            </button>
+          </div>
+        </aside>
+
+        <main className="space-y-6">
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Vista del reporte</CardTitle>
+              <CardDescription>Abre una sección en el panel izquierdo para ver su contenido.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 text-sm text-slate-600">
+              {selectedSection === null ? (
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                  <p className="text-slate-700">
+                    Selecciona "Registros de bienes" o "Registros de fichas" para ver el reporte disponible.
+                  </p>
+                </div>
+              ) : selectedSection === "bienes" ? (
+                <div className="space-y-4">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                    <h3 className="text-base font-semibold text-slate-900">Registros de bienes</h3>
+                    <p className="text-slate-600">
+                      Incluye código de inventario, código patrimonial, descripción, marca, modelo y estado.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => handleExport("bienes")}
+                    disabled={exporting}
+                    className="gap-2 bg-slate-800 hover:bg-slate-900"
+                  >
+                    <Download className="w-4 h-4" />
+                    {exporting ? "Generando..." : "Descargar reporte de bienes"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                    <h3 className="text-base font-semibold text-slate-900">Registros de fichas</h3>
+                    <p className="text-slate-600">
+                      Incluye número de ficha, responsable, prioridad, estado, diagnóstico y datos del bien asociado.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => handleExport("fichas")}
+                    disabled={exporting}
+                    className="gap-2 bg-slate-800 hover:bg-slate-900"
+                  >
+                    <Download className="w-4 h-4" />
+                    {exporting ? "Generando..." : "Descargar reporte de fichas"}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {message && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-slate-500" />
+                <span>{message}</span>
+              </div>
+            </div>
+          )}
+
+          <Card className="border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Indicaciones</CardTitle>
+              <CardDescription>Accede a los datos de soporte y genera tu reporte en CSV.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-slate-600">
+              <div className="flex items-start gap-2">
+                <FileSpreadsheet className="mt-1 h-5 w-5 text-slate-400" />
+                <p>El botón generará un archivo descargable con los registros de fichas de soporte.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <BarChart className="mt-1 h-5 w-5 text-slate-400" />
+                <p>El reporte incluye estado del ticket, responsable, datos del bien y firmas.</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-1 h-5 w-5 text-slate-400" />
+                <p>Los usuarios de soporte tienen acceso restringido a este panel y no pueden acceder a la configuración administrativa.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">

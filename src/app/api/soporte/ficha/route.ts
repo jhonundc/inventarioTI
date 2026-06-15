@@ -92,7 +92,7 @@ function mapFichaRow(row: any) {
     Prioridad: row.IdPrioridad
       ? {
         IdPrioridad: row.IdPrioridad,
-        Prioridad: row.Prioridad_Prioridad,
+        NombrePrioridad: row.Prioridad_Prioridad,
         Activo: row.Prioridad_Activo,
       }
       : null,
@@ -106,6 +106,14 @@ function mapFichaRow(row: any) {
 }
 
 async function fetchFichaById(id: number) {
+  // Validar existencia usando el procedimiento de consulta
+  const check = await executeQuery(
+    `EXEC pro_ConsultarSoporteTecnico @TipoConsulta = @TipoConsulta, @IdSoporte = @IdSoporte`,
+    { TipoConsulta: "POR_ID", IdSoporte: id }
+  );
+  if (!check.recordset || check.recordset.length === 0) return null;
+
+  // Obtener la fila enriquecida (con joins) para devolver la estructura completa
   const queryText = `
     SELECT 
         s.*,
@@ -138,8 +146,71 @@ async function fetchFichaById(id: number) {
 }
 
 // Obtener todas las fichas de soporte
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const idParam = searchParams.get("id");
+    const numeroFichaParam = searchParams.get("numeroFicha");
+    const estadoParam = searchParams.get("estadoTicket");
+
+    // Si piden por id -> devolver ficha enriquecida
+    if (idParam) {
+      const id = parseInt(idParam);
+      if (isNaN(id)) {
+        return NextResponse.json({ error: "Id inválido" }, { status: 400 });
+      }
+      const ficha = await fetchFichaById(id);
+      if (!ficha) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+      return NextResponse.json(ficha);
+    }
+
+    // Si piden por número de ficha -> usar procedimiento y luego enriquecer
+    if (numeroFichaParam) {
+      const q = await executeQuery(
+        `EXEC pro_ConsultarSoporteTecnico @TipoConsulta = @TipoConsulta, @NumeroFicha = @NumeroFicha`,
+        { TipoConsulta: "POR_FICHA", NumeroFicha: numeroFichaParam }
+      );
+      const row = q.recordset[0];
+      if (!row) return NextResponse.json([], { status: 200 });
+      const ficha = await fetchFichaById(row.IdSoporte);
+      return NextResponse.json(ficha || null);
+    }
+
+    // Si piden por estado -> devolver lista enriquecida filtrada
+    if (estadoParam) {
+      const q = await executeQuery(
+        `SELECT 
+           s.*,
+           b.CodigoInventario AS Bien_CodigoInventario, b.CodigoPatrimonial AS Bien_CodigoPatrimonial, b.Descripcion AS Bien_Descripcion, b.NumeroSerie AS Bien_NumeroSerie, b.IdMarca AS Bien_IdMarca, b.IdModelo AS Bien_IdModelo, b.IdArea AS Bien_IdArea, b.IdCondicion AS Bien_IdCondicion, b.IdEstadoBien AS Bien_IdEstadoBien, b.Activo AS Bien_Activo,
+           bm.Marca AS Bien_Marca_Marca, bm.Activo AS Bien_Marca_Activo,
+           bmo.Modelo AS Bien_Modelo_Modelo, bmo.Activo AS Bien_Modelo_Activo, bmo.IdMarca AS Bien_Modelo_IdMarca, bmo.IdCategoria AS Bien_Modelo_IdCategoria,
+           ba.NombreArea AS Bien_Area_NombreArea, ba.Piso AS Bien_Area_Piso, ba.Referencia AS Bien_Area_Referencia, ba.Activo AS Bien_Area_Activo,
+           bc.Condicion AS Bien_Condicion_Condicion, bc.Activo AS Bien_Condicion_Activo,
+           be.EstadoBien AS Bien_Estado_EstadoBien, be.Activo AS Bien_Estado_Activo,
+           sc.Condicion AS Condicion_Condicion, sc.Activo AS Condicion_Activo,
+           se.EstadoBien AS Estado_EstadoBien, se.Activo AS Estado_Activo,
+           p.NombrePrioridad AS Prioridad_Prioridad, p.Activo AS Prioridad_Activo,
+           u.Nombres AS Usuario_Nombres, u.Usuario AS Usuario_Usuario
+         FROM SoporteTecnico s
+         LEFT JOIN Bienes b ON s.IdBien = b.IdBien
+         LEFT JOIN Marcas bm ON b.IdMarca = bm.IdMarca
+         LEFT JOIN Modelos bmo ON b.IdModelo = bmo.IdModelo
+         LEFT JOIN Areas ba ON b.IdArea = ba.IdArea
+         LEFT JOIN CondicionesBien bc ON b.IdCondicion = bc.IdCondicion
+         LEFT JOIN EstadosDelBien be ON b.IdEstadoBien = be.IdEstadoBien
+         LEFT JOIN CondicionesBien sc ON s.IdCondicion = sc.IdCondicion
+         LEFT JOIN EstadosDelBien se ON s.IdEstadoBien = se.IdEstadoBien
+         LEFT JOIN Prioridades p ON s.IdPrioridad = p.IdPrioridad
+         LEFT JOIN Usuarios u ON s.IdUsuarioSoporte = u.IdUsuario
+         WHERE s.EstadoTicket = @EstadoTicket
+         ORDER BY s.FechaRegistro DESC`,
+        { EstadoTicket: estadoParam }
+      );
+      const fichas = q.recordset.map(mapFichaRow);
+      return NextResponse.json(fichas);
+    }
+
+    // Default: listar todos (con joins para mantener estructura enriquecida)
     const queryText = `
       SELECT 
           s.*,
@@ -191,44 +262,66 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await executeQuery(
-      `INSERT INTO SoporteTecnico (
-        NumeroFicha, UnidadOrganica, IdBien, Responsable, Dependencia,
-        Ambiente, TipoBien, IdCondicion, IdEstadoBien, TrabajosRealizados,
-        Diagnostico, Recomendacion, IdPrioridad, EstadoTicket, Siglas,
-        FirmaSoporte, FirmaJefeUnidad, FirmaAreaUsuario, IdUsuarioSoporte, FechaRegistro
-       ) 
-       OUTPUT INSERTED.IdSoporte
-       VALUES (
-        @NumeroFicha, @UnidadOrganica, @IdBien, @Responsable, @Dependencia,
-        @Ambiente, @TipoBien, @IdCondicion, @IdEstadoBien, @TrabajosRealizados,
-        @Diagnostico, @Recomendacion, @IdPrioridad, @EstadoTicket, @Siglas,
-        @FirmaSoporte, @FirmaJefeUnidad, @FirmaAreaUsuario, @IdUsuarioSoporte, GETDATE()
-       )`,
-      {
-        NumeroFicha: data.NumeroFicha,
-        UnidadOrganica: data.UnidadOrganica || "UNIDAD DE ESTADISTICA E INFORMATICA",
-        IdBien: data.IdBien ? parseInt(data.IdBien) : null,
-        Responsable: data.Responsable || null,
-        Dependencia: data.Dependencia || null,
-        Ambiente: data.Ambiente || null,
-        TipoBien: data.TipoBien || null,
-        IdCondicion: data.IdCondicion ? parseInt(data.IdCondicion) : null,
-        IdEstadoBien: data.IdEstadoBien ? parseInt(data.IdEstadoBien) : null,
-        TrabajosRealizados: data.TrabajosRealizados || null,
-        Diagnostico: data.Diagnostico || null,
-        Recomendacion: data.Recomendacion || null,
-        IdPrioridad: data.IdPrioridad ? parseInt(data.IdPrioridad) : null,
-        EstadoTicket: data.EstadoTicket || "Pendiente",
-        Siglas: data.Siglas || null,
-        FirmaSoporte: data.FirmaSoporte || null,
-        FirmaJefeUnidad: data.FirmaJefeUnidad || null,
-        FirmaAreaUsuario: data.FirmaAreaUsuario || null,
-        IdUsuarioSoporte: data.IdUsuarioSoporte ? parseInt(data.IdUsuarioSoporte) : null,
-      }
+    const params = {
+      Accion: "I",
+      NumeroFicha: data.NumeroFicha,
+      UnidadOrganica: data.UnidadOrganica || "UNIDAD DE ESTADISTICA E INFORMATICA",
+      IdBien: data.IdBien ? parseInt(data.IdBien) : null,
+      Responsable: data.Responsable || null,
+      Dependencia: data.Dependencia || null,
+      Ambiente: data.Ambiente || null,
+      TipoBien: data.TipoBien || null,
+      IdCondicion: data.IdCondicion ? parseInt(data.IdCondicion) : null,
+      IdEstadoBien: data.IdEstadoBien ? parseInt(data.IdEstadoBien) : null,
+      TrabajosRealizados: data.TrabajosRealizados || null,
+      Diagnostico: data.Diagnostico || null,
+      Recomendacion: data.Recomendacion || null,
+      IdPrioridad: data.IdPrioridad ? parseInt(data.IdPrioridad) : null,
+      EstadoTicket: data.EstadoTicket || "Pendiente",
+      Siglas: data.Siglas || null,
+      FirmaSoporte: data.FirmaSoporte || null,
+      FirmaJefeUnidad: data.FirmaJefeUnidad || null,
+      FirmaAreaUsuario: data.FirmaAreaUsuario || null,
+      IdUsuarioSoporte: data.IdUsuarioSoporte ? parseInt(data.IdUsuarioSoporte) : null,
+    };
+
+    await executeQuery(
+      `EXEC pro_MantenimientoSoporteTecnico
+         @Accion = @Accion,
+         @NumeroFicha = @NumeroFicha,
+         @UnidadOrganica = @UnidadOrganica,
+         @IdBien = @IdBien,
+         @Responsable = @Responsable,
+         @Dependencia = @Dependencia,
+         @Ambiente = @Ambiente,
+         @TipoBien = @TipoBien,
+         @IdCondicion = @IdCondicion,
+         @IdEstadoBien = @IdEstadoBien,
+         @TrabajosRealizados = @TrabajosRealizados,
+         @Diagnostico = @Diagnostico,
+         @Recomendacion = @Recomendacion,
+         @IdPrioridad = @IdPrioridad,
+         @EstadoTicket = @EstadoTicket,
+         @Siglas = @Siglas,
+         @FirmaSoporte = @FirmaSoporte,
+         @FirmaJefeUnidad = @FirmaJefeUnidad,
+         @FirmaAreaUsuario = @FirmaAreaUsuario,
+         @IdUsuarioSoporte = @IdUsuarioSoporte`,
+      params
     );
 
-    const newId = result.recordset[0].IdSoporte;
+    const idResult = await executeQuery(
+      `SELECT TOP 1 IdSoporte FROM SoporteTecnico
+         WHERE NumeroFicha = @NumeroFicha
+         ORDER BY FechaRegistro DESC`,
+      { NumeroFicha: data.NumeroFicha }
+    );
+
+    const newId = idResult.recordset[0]?.IdSoporte;
+    if (!newId) {
+      throw new Error("No se pudo obtener el IdSoporte después de ejecutar el procedimiento almacenado");
+    }
+
     const nuevaFicha = await fetchFichaById(newId);
 
     return NextResponse.json(nuevaFicha, { status: 201 });
@@ -249,63 +342,90 @@ export async function PATCH(request: Request) {
 
     if (isNaN(id)) {
       return NextResponse.json(
-        { error: "IdSoporte es requerido" },
+        { error: "IdSoporte es requerido y debe ser un número válido" },
         { status: 400 }
       );
     }
 
-    await executeQuery(
-      `UPDATE SoporteTecnico
-       SET NumeroFicha = @NumeroFicha,
-           UnidadOrganica = @UnidadOrganica,
-           IdBien = @IdBien,
-           Responsable = @Responsable,
-           Dependencia = @Dependencia,
-           Ambiente = @Ambiente,
-           TipoBien = @TipoBien,
-           IdCondicion = @IdCondicion,
-           IdEstadoBien = @IdEstadoBien,
-           TrabajosRealizados = @TrabajosRealizados,
-           Diagnostico = @Diagnostico,
-           Recomendacion = @Recomendacion,
-           IdPrioridad = @IdPrioridad,
-           EstadoTicket = @EstadoTicket,
-           Siglas = @Siglas,
-           FirmaSoporte = @FirmaSoporte,
-           FirmaJefeUnidad = @FirmaJefeUnidad,
-           FirmaAreaUsuario = @FirmaAreaUsuario,
-           IdUsuarioSoporte = @IdUsuarioSoporte
-       WHERE IdSoporte = @IdSoporte`,
-      {
-        IdSoporte: id,
-        NumeroFicha: data.NumeroFicha,
-        UnidadOrganica: data.UnidadOrganica || "UNIDAD DE ESTADISTICA E INFORMATICA",
-        IdBien: data.IdBien ? parseInt(data.IdBien) : null,
-        Responsable: data.Responsable || null,
-        Dependencia: data.Dependencia || null,
-        Ambiente: data.Ambiente || null,
-        TipoBien: data.TipoBien || null,
-        IdCondicion: data.IdCondicion ? parseInt(data.IdCondicion) : null,
-        IdEstadoBien: data.IdEstadoBien ? parseInt(data.IdEstadoBien) : null,
-        TrabajosRealizados: data.TrabajosRealizados || null,
-        Diagnostico: data.Diagnostico || null,
-        Recomendacion: data.Recomendacion || null,
-        IdPrioridad: data.IdPrioridad ? parseInt(data.IdPrioridad) : null,
-        EstadoTicket: data.EstadoTicket || "Pendiente",
-        Siglas: data.Siglas || null,
-        FirmaSoporte: data.FirmaSoporte || null,
-        FirmaJefeUnidad: data.FirmaJefeUnidad || null,
-        FirmaAreaUsuario: data.FirmaAreaUsuario || null,
-        IdUsuarioSoporte: data.IdUsuarioSoporte ? parseInt(data.IdUsuarioSoporte) : null,
-      }
-    );
+    if (!data.NumeroFicha) {
+      return NextResponse.json(
+        { error: "NumeroFicha es requerido" },
+        { status: 400 }
+      );
+    }
 
+    const params = {
+      Accion: "U",
+      IdSoporte: id,
+      NumeroFicha: data.NumeroFicha,
+      UnidadOrganica: data.UnidadOrganica || "UNIDAD DE ESTADISTICA E INFORMATICA",
+      IdBien: data.IdBien ? parseInt(data.IdBien) : null,
+      Responsable: data.Responsable || null,
+      Dependencia: data.Dependencia || null,
+      Ambiente: data.Ambiente || null,
+      TipoBien: data.TipoBien || null,
+      IdCondicion: data.IdCondicion ? parseInt(data.IdCondicion) : null,
+      IdEstadoBien: data.IdEstadoBien ? parseInt(data.IdEstadoBien) : null,
+      TrabajosRealizados: data.TrabajosRealizados || null,
+      Diagnostico: data.Diagnostico || null,
+      Recomendacion: data.Recomendacion || null,
+      IdPrioridad: data.IdPrioridad ? parseInt(data.IdPrioridad) : null,
+      EstadoTicket: data.EstadoTicket || "Pendiente",
+      Siglas: data.Siglas || null,
+      FirmaSoporte: data.FirmaSoporte || null,
+      FirmaJefeUnidad: data.FirmaJefeUnidad || null,
+      FirmaAreaUsuario: data.FirmaAreaUsuario || null,
+      IdUsuarioSoporte: data.IdUsuarioSoporte ? parseInt(data.IdUsuarioSoporte) : null,
+    };
+
+    try {
+      await executeQuery(
+        `EXEC pro_MantenimientoSoporteTecnico
+           @Accion = @Accion,
+           @IdSoporte = @IdSoporte,
+           @NumeroFicha = @NumeroFicha,
+           @UnidadOrganica = @UnidadOrganica,
+           @IdBien = @IdBien,
+           @Responsable = @Responsable,
+           @Dependencia = @Dependencia,
+           @Ambiente = @Ambiente,
+           @TipoBien = @TipoBien,
+           @IdCondicion = @IdCondicion,
+           @IdEstadoBien = @IdEstadoBien,
+           @TrabajosRealizados = @TrabajosRealizados,
+           @Diagnostico = @Diagnostico,
+           @Recomendacion = @Recomendacion,
+           @IdPrioridad = @IdPrioridad,
+           @EstadoTicket = @EstadoTicket,
+           @Siglas = @Siglas,
+           @FirmaSoporte = @FirmaSoporte,
+           @FirmaJefeUnidad = @FirmaJefeUnidad,
+           @FirmaAreaUsuario = @FirmaAreaUsuario,
+           @IdUsuarioSoporte = @IdUsuarioSoporte`,
+        params
+      );
+    } catch (execError: any) {
+      console.error("Error ejecutando procedimiento en PATCH:", execError);
+      return NextResponse.json(
+        { error: `Error al ejecutar actualización: ${execError.message || "Error desconocido"}` },
+        { status: 500 }
+      );
+    }
+
+    // Verificar que la ficha actualizada exista
     const fichaActualizada = await fetchFichaById(id);
+    if (!fichaActualizada) {
+      return NextResponse.json(
+        { error: "La ficha no se actualizó correctamente" },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(fichaActualizada);
   } catch (error) {
     console.error("Error en PATCH /api/soporte/ficha:", error);
     return NextResponse.json(
-      { error: "Error al actualizar la ficha de soporte" },
+      { error: `Error al actualizar la ficha de soporte: ${error instanceof Error ? error.message : "Error desconocido"}` },
       { status: 500 }
     );
   }
@@ -325,8 +445,10 @@ export async function DELETE(request: Request) {
     }
 
     await executeQuery(
-      "DELETE FROM SoporteTecnico WHERE IdSoporte = @IdSoporte",
-      { IdSoporte: id }
+      `EXEC pro_MantenimientoSoporteTecnico
+         @Accion = @Accion,
+         @IdSoporte = @IdSoporte`,
+      { Accion: "D", IdSoporte: id }
     );
 
     return NextResponse.json({ success: true, message: "Ficha eliminada exitosamente" });

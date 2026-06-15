@@ -9,6 +9,18 @@ function parseNullableInt(value: any) {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
+function normalizeComponentesRecord(record: any) {
+  if (!record || typeof record !== "object") return record;
+  const normalized = { ...record };
+  if (normalized.Marca && typeof normalized.Marca === "object") {
+    normalized.Marca = normalized.Marca.Marca ?? "";
+  }
+  if (normalized.EstadoEquipo && typeof normalized.EstadoEquipo === "object") {
+    normalized.EstadoEquipo = normalized.EstadoEquipo.EstadoEquipo ?? "";
+  }
+  return normalized;
+}
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -42,13 +54,13 @@ export async function GET(request: Request) {
         rec.IdComponente ? executeQuery(`SELECT IdComponente, NombreComponente, Modelo FROM Componentes WHERE IdComponente = @IdComponente`, { IdComponente: rec.IdComponente }) : Promise.resolve({ recordset: [] }),
       ]);
 
-      const enriched = {
+      const enriched = normalizeComponentesRecord({
         ...rec,
         BienDescripcion: (bRes.recordset[0] && bRes.recordset[0].Descripcion) || null,
         CodigoInventario: (bRes.recordset[0] && bRes.recordset[0].CodigoInventario) || null,
         NombreComponente: (cRes.recordset[0] && cRes.recordset[0].NombreComponente) || null,
         ComponenteModelo: (cRes.recordset[0] && cRes.recordset[0].Modelo) || null,
-      };
+      });
 
       return NextResponse.json(enriched);
     }
@@ -78,7 +90,7 @@ export async function GET(request: Request) {
       const bienesMap = new Map((bienesResult.recordset || []).map((b: any) => [b.IdBien, b]));
       const componentesMap = new Map((componentesResult.recordset || []).map((c: any) => [c.IdComponente, c]));
 
-      const enrichedRecords = records.map((record: any) => ({
+      const enrichedRecords = records.map((record: any) => normalizeComponentesRecord({
         ...record,
         BienDescripcion: bienesMap.get(record.IdBien)?.Descripcion || null,
         CodigoInventario: bienesMap.get(record.IdBien)?.CodigoInventario || null,
@@ -113,7 +125,7 @@ export async function GET(request: Request) {
       const bienesMap = new Map((bienesResult.recordset || []).map((b: any) => [b.IdBien, b]));
       const componentesMap = new Map((componentesResult.recordset || []).map((c: any) => [c.IdComponente, c]));
 
-      const enrichedRecords = records.map((record: any) => ({
+      const enrichedRecords = records.map((record: any) => normalizeComponentesRecord({
         ...record,
         BienDescripcion: bienesMap.get(record.IdBien)?.Descripcion || null,
         CodigoInventario: bienesMap.get(record.IdBien)?.CodigoInventario || null,
@@ -158,7 +170,7 @@ export async function GET(request: Request) {
       (componentesResult.recordset || []).map((c: any) => [c.IdComponente, c])
     );
 
-    const enrichedRecords = records.map((record: any) => ({
+    const enrichedRecords = records.map((record: any) => normalizeComponentesRecord({
       ...record,
       BienDescripcion: bienesMap.get(record.IdBien)?.Descripcion || null,
       CodigoInventario: bienesMap.get(record.IdBien)?.CodigoInventario || null,
