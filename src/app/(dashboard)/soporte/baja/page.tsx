@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getCondiciones, getEstados } from "@/app/actions/catalogs";
 
 const fetchBajas = async () => {
@@ -97,7 +97,23 @@ export default function FichaBajaPage() {
   const [buscarText, setBuscarText] = useState("");
   const [bienSearch, setBienSearch] = useState("");
   const queryClient = useQueryClient();
-  const { register, handleSubmit, reset, setValue, watch } = useForm();
+  const { register, handleSubmit, reset, setValue, watch } = useForm({
+    defaultValues: {
+      NumeroFichaBaja: "",
+      UnidadOrganica: "UNIDAD DE ESTADISTICA E INFORMATICA",
+      Dependencia: "",
+      IdBien: "",
+      Prioridad: "",
+      TipoBien: "",
+      IdCondicion: "",
+      IdEstadoBien: "",
+      CausalBaja: "",
+      Recomendacion: "",
+      Observacion: "",
+      Fundamentacion: "",
+      IdUsuarioRegistro: "",
+    },
+  });
 
   const { data: bajas, isLoading } = useQuery({
     queryKey: ["fichasBaja"],
@@ -107,6 +123,14 @@ export default function FichaBajaPage() {
   const { data: bienes } = useQuery({ queryKey: ["bienes"], queryFn: fetchBienes });
   const { data: condiciones } = useQuery({ queryKey: ["condiciones"], queryFn: () => getCondiciones() });
   const { data: estados } = useQuery({ queryKey: ["estados"], queryFn: () => getEstados() });
+  const { data: sessionData } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth/session");
+      if (!res.ok) return null;
+      return res.json();
+    },
+  });
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
@@ -116,7 +140,10 @@ export default function FichaBajaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editingBaja ? { ...data, IdBaja: editingBaja.IdBaja } : data),
       });
-      if (!res.ok) throw new Error(`Error al ${editingBaja ? "actualizar" : "crear"} la ficha`);
+      if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(`Error al ${editingBaja ? "actualizar" : "crear"} la ficha: ${errorBody}`);
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -126,6 +153,9 @@ export default function FichaBajaPage() {
       reset();
       setEditingBaja(null);
     },
+    onError: (error: any) => {
+      alert(error?.message || "No se pudo guardar la ficha de baja. Revise los datos e intente de nuevo.");
+    },
   });
 
   const handleSelectField = (field: "IdCondicion" | "IdEstadoBien" | "Recomendacion" | "CausalBaja", value: string) => {
@@ -134,13 +164,47 @@ export default function FichaBajaPage() {
   };
 
   const onSubmit = (data: any) => {
-    mutation.mutate({
+    if (!data.NumeroFichaBaja) {
+      alert("La ficha debe tener un número.");
+      return;
+    }
+    if (!data.IdBien) {
+      alert("Seleccione un bien antes de guardar la ficha.");
+      return;
+    }
+    if (!data.TipoBien) {
+      alert("Seleccione el tipo de bien.");
+      return;
+    }
+    if (!data.IdCondicion) {
+      alert("Seleccione la condición del bien.");
+      return;
+    }
+    if (!data.IdEstadoBien) {
+      alert("Seleccione el estado del bien.");
+      return;
+    }
+    if (!data.CausalBaja) {
+      alert("Seleccione la causal de baja.");
+      return;
+    }
+    if (!data.Recomendacion) {
+      alert("Seleccione la recomendación.");
+      return;
+    }
+    if (!data.Fundamentacion) {
+      alert("Complete la fundamentación.");
+      return;
+    }
+
+    const userId = sessionData?.user?.id || data.IdUsuarioRegistro || null;
+    const payload = {
       ...data,
-      IdCondicion: formData.IdCondicion || data.IdCondicion || "",
-      IdEstadoBien: formData.IdEstadoBien || data.IdEstadoBien || "",
-      Recomendacion: formData.Recomendacion || data.Recomendacion || "",
-      CausalBaja: formData.CausalBaja || data.CausalBaja || "",
-    });
+      IdUsuarioRegistro: userId ? String(userId) : null,
+    };
+
+    console.log("Guardando ficha de baja:", payload);
+    mutation.mutate(payload);
   };
 
   const deleteMutation = useMutation({
@@ -163,18 +227,20 @@ export default function FichaBajaPage() {
     setValue("Dependencia", baja.Dependencia || "");
     setValue("Ambiente", baja.Ambiente || "");
     setValue("TipoBien", baja.TipoBien || "");
+    setValue("Prioridad", baja.Prioridad || "");
     setValue("IdCondicion", baja.IdCondicion?.toString() || "");
     setValue("IdEstadoBien", baja.IdEstadoBien?.toString() || "");
+    setValue("Fundamentacion", baja.Fundamentacion || "");
+    setValue("Recomendacion", baja.Recomendacion || "");
+    setValue("CausalBaja", baja.CausalBaja || "");
+    setValue("Observacion", baja.Observacion || "");
+    setValue("IdUsuarioRegistro", baja.IdUsuarioRegistro?.toString() || sessionData?.user?.id?.toString() || "");
     setFormData({
       IdCondicion: baja.IdCondicion?.toString() || "",
       IdEstadoBien: baja.IdEstadoBien?.toString() || "",
       Recomendacion: baja.Recomendacion || "",
       CausalBaja: baja.CausalBaja || "",
     });
-    setValue("Fundamentacion", baja.Fundamentacion || "");
-    setValue("Recomendacion", baja.Recomendacion || "");
-    setValue("CausalBaja", baja.CausalBaja || "");
-    setValue("Observacion", baja.Observacion || "");
     setOpen(true);
   };
 
@@ -497,16 +563,39 @@ export default function FichaBajaPage() {
   };
 
   const handleNew = () => {
+    const newFolio = `FB-${Math.floor(1000 + Math.random() * 9000)}`;
+    const userId = sessionData?.user?.id ? String(sessionData.user.id) : "";
+
     setEditingBaja(null);
     setFormData({ IdCondicion: "", IdEstadoBien: "", Recomendacion: "", CausalBaja: "" });
-    reset();
-    setValue("NumeroFichaBaja", `FB-${Math.floor(1000 + Math.random() * 9000)}`);
+    reset({
+      NumeroFichaBaja: newFolio,
+      UnidadOrganica: "UNIDAD DE ESTADISTICA E INFORMATICA",
+      Dependencia: "",
+      IdBien: "",
+      Prioridad: "",
+      TipoBien: "",
+      IdCondicion: "",
+      IdEstadoBien: "",
+      CausalBaja: "",
+      Recomendacion: "",
+      Observacion: "",
+      Fundamentacion: "",
+      IdUsuarioRegistro: userId,
+    });
+    setBienSearch("");
     setOpen(true);
   };
 
   const selectedBien = watch("IdBien");
   const selectedCondicion = watch("IdCondicion");
   const selectedEstado = watch("IdEstadoBien");
+
+  useEffect(() => {
+    if (sessionData?.user?.id) {
+      setValue("IdUsuarioRegistro", String(sessionData.user.id));
+    }
+  }, [sessionData, setValue]);
 
   const selectedBienLabel = bienes?.find((b: any) => String(b.IdBien) === String(selectedBien))?.Descripcion || "Seleccionar Bien";
   const selectedCondicionLabel = condiciones?.find((c: any) => String(c.IdCondicion) === String(selectedCondicion))?.Condicion || "Seleccionar";
@@ -619,6 +708,16 @@ export default function FichaBajaPage() {
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 px-6 py-6 sm:px-8">
+              <input type="hidden" {...register("IdBien")} />
+              <input type="hidden" {...register("Dependencia")} />
+              <input type="hidden" {...register("Prioridad")} />
+              <input type="hidden" {...register("TipoBien")} />
+              <input type="hidden" {...register("IdCondicion")} />
+              <input type="hidden" {...register("IdEstadoBien")} />
+              <input type="hidden" {...register("CausalBaja")} />
+              <input type="hidden" {...register("Recomendacion")} />
+              <input type="hidden" {...register("Observacion")} />
+              <input type="hidden" {...register("IdUsuarioRegistro")} />
               <section className="rounded-3xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
@@ -809,7 +908,6 @@ export default function FichaBajaPage() {
                   <th className="px-4 py-4 font-semibold whitespace-nowrap">Estado</th>
                   <th className="px-4 py-4 font-semibold whitespace-nowrap">Causal</th>
                   <th className="px-4 py-4 font-semibold whitespace-nowrap">Responsable</th>
-                  <th className="px-4 py-4 font-semibold whitespace-nowrap">Usuario Reg.</th>
                   <th className="px-4 py-4 font-semibold whitespace-nowrap text-center">Acciones</th>
                 </tr>
               </thead>
@@ -834,7 +932,6 @@ export default function FichaBajaPage() {
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-slate-600">{baja.CausalBaja || "-"}</td>
                     <td className="px-4 py-4 whitespace-nowrap text-slate-600">{baja.Responsable || "-"}</td>
-                    <td className="px-4 py-4 whitespace-nowrap text-slate-600">{baja.UsuarioRegistro?.Nombres || baja.UsuarioRegistro?.Usuario || "-"}</td>
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Button 
@@ -1000,7 +1097,6 @@ export default function FichaBajaPage() {
 
               <div className="mt-4 flex items-center justify-between border-t pt-3 text-[10px] text-slate-400 print:mt-12 print:text-slate-500">
                 <span>SISTEMA DE SOPORTE Y BAJA DE BIENES</span>
-                <span>REGISTRADO POR: {selectedFicha.UsuarioRegistro?.Nombres || selectedFicha.UsuarioRegistro?.Usuario || "-"}</span>
               </div>
             </div>
           )}

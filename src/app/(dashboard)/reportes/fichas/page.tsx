@@ -25,6 +25,51 @@ export default function ReportesFichasPage() {
   const [stats, setStats] = useState<any | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
 
+  const normalizeSupport = (row: any) => ({
+    id: row.IdSoporte,
+    tipo: "Soporte",
+    numero: row.NumeroFicha,
+    unidadOrganica: row.UnidadOrganica,
+    responsable: row.Responsable,
+    dependencia: row.Dependencia,
+    ambiente: row.Ambiente,
+    tipoBien: row.TipoBien,
+    fechaRegistro: row.FechaRegistro,
+    bien: row.Bien || null,
+    estado: row.Estado?.EstadoBien || "",
+    estadoTicket: row.EstadoTicket || "",
+    trabajosRealizados: row.TrabajosRealizados || "",
+    diagnostico: row.Diagnostico || "",
+    recomendacion: row.Recomendacion || "",
+    prioridad: row.Prioridad?.NombrePrioridad || "",
+    siglas: row.Siglas || "",
+    firmaSoporte: row.FirmaSoporte || "",
+    firmaJefeUnidad: row.FirmaJefeUnidad || "",
+    firmaAreaUsuario: row.FirmaAreaUsuario || "",
+    usuario: row.UsuarioSoporte?.Nombres || row.UsuarioSoporte?.Usuario || "",
+    raw: row,
+  });
+
+  const normalizeBaja = (row: any) => ({
+    id: row.IdBaja,
+    tipo: "Baja",
+    numero: row.NumeroFichaBaja,
+    unidadOrganica: row.UnidadOrganica,
+    responsable: row.Responsable,
+    dependencia: row.Dependencia,
+    ambiente: row.Ambiente,
+    tipoBien: row.TipoBien,
+    fechaRegistro: row.FechaRegistro,
+    bien: row.Bien || null,
+    estado: row.Estado?.EstadoBien || "",
+    causalBaja: row.CausalBaja || "",
+    fundamentacion: row.Fundamentacion || "",
+    recomendacion: row.Recomendacion || "",
+    observacion: row.Observacion || "",
+    usuario: row.UsuarioRegistro?.Nombres || row.UsuarioRegistro?.Usuario || "",
+    raw: row,
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -35,13 +80,23 @@ export default function ReportesFichasPage() {
   const loadRecords = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/soporte/ficha");
-      if (!res.ok) throw new Error("Error cargando fichas");
-      const data = await res.json();
-      setRecords(Array.isArray(data) ? data : []);
+      const [supportRes, bajaRes] = await Promise.all([
+        fetch("/api/soporte/ficha"),
+        fetch("/api/soporte/baja"),
+      ]);
+
+      if (!supportRes.ok) throw new Error("Error cargando fichas de soporte");
+      if (!bajaRes.ok) throw new Error("Error cargando fichas de baja");
+
+      const [supportData, bajaData] = await Promise.all([supportRes.json(), bajaRes.json()]);
+      const supportRecords = Array.isArray(supportData) ? supportData.map(normalizeSupport) : [];
+      const bajaRecords = Array.isArray(bajaData) ? bajaData.map(normalizeBaja) : [];
+
+      setRecords([...supportRecords, ...bajaRecords]);
     } catch (e) {
       console.error(e);
       setMessage("No se pudieron cargar las fichas");
+      setRecords([]);
     } finally {
       setLoading(false);
     }
@@ -74,32 +129,37 @@ export default function ReportesFichasPage() {
     return records.filter((r) => {
       // filtro fecha
       if (startDate) {
-        const fecha = r.FechaRegistro ? new Date(r.FechaRegistro) : null;
+        const fecha = r.fechaRegistro ? new Date(r.fechaRegistro) : null;
         if (!fecha || fecha < new Date(startDate)) return false;
       }
       if (endDate) {
-        const fecha = r.FechaRegistro ? new Date(r.FechaRegistro) : null;
+        const fecha = r.fechaRegistro ? new Date(r.fechaRegistro) : null;
         if (!fecha || fecha > new Date(endDate + "T23:59:59")) return false;
       }
 
       if (!term) return true;
 
       const checks = [
-        r.NumeroFicha,
-        r.Responsable,
-        r.Dependencia,
-        r.Ambiente,
-        r.DescripcionProblema,
-        r.TrabajosRealizados,
-        r.Diagnostico,
-        r.Recomendacion,
-        r.Bien?.CodigoInventario,
-        r.Bien?.CodigoPatrimonial,
-        r.Bien?.NumeroSerie,
-        r.Bien?.Descripcion,
+        r.tipo,
+        r.numero,
+        r.responsable,
+        r.dependencia,
+        r.ambiente,
+        r.tipoBien,
+        r.recomendacion,
+        r.causalBaja,
+        r.fundamentacion,
+        r.trabajosRealizados,
+        r.diagnostico,
+        r.prioridad,
+        r.bien?.CodigoInventario,
+        r.bien?.CodigoPatrimonial,
+        r.bien?.NumeroSerie,
+        r.bien?.Descripcion,
+        r.usuario,
       ];
 
-      return checks.some((c) => (String(c || "").toLowerCase().includes(term)));
+      return checks.some((c) => String(c || "").toLowerCase().includes(term));
     });
   }, [records, searchTerm, startDate, endDate]);
 
@@ -108,23 +168,56 @@ export default function ReportesFichasPage() {
     setMessage("");
     try {
       // enviar filtros al endpoint de exportar si soporta query params
-      const params = new URLSearchParams();
-      if (startDate) params.set("startDate", startDate);
-      if (endDate) params.set("endDate", endDate);
-      if (searchTerm) params.set("q", searchTerm);
+      const headers = [
+        "Tipo",
+        "Nº Ficha",
+        "Unidad Orgánica",
+        "Fecha Registro",
+        "Responsable",
+        "Dependencia",
+        "Ambiente",
+        "Bien",
+        "Cod. Inventario",
+        "Cod. Patrimonial",
+        "Estado",
+        "Tipo Bien",
+        "Recomendación",
+        "Causal de Baja",
+        "Fundamentación",
+        "Trabajos Realizados",
+        "Diagnóstico",
+        "Prioridad",
+      ];
 
-      const url = `/api/soporte/ficha/exportar?${params.toString()}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || "Error al generar exportación");
-      }
+      const rows = filteredRecords.map((r) => [
+        r.tipo,
+        r.numero || "",
+        r.unidadOrganica || "",
+        r.fechaRegistro ? new Date(r.fechaRegistro).toLocaleString("es-PE") : "",
+        r.responsable || "",
+        r.dependencia || "",
+        r.ambiente || "",
+        r.bien?.Descripcion || r.bien?.CodigoInventario || "",
+        r.bien?.CodigoInventario || "",
+        r.bien?.CodigoPatrimonial || "",
+        r.estado || "",
+        r.tipoBien || "",
+        r.recomendacion || "",
+        r.causalBaja || "",
+        r.fundamentacion || "",
+        r.trabajosRealizados || "",
+        r.diagnostico || "",
+        r.prioridad || "",
+      ]);
 
-      const blob = await res.blob();
+      const csvContent = [headers.join("\t"), ...rows.map((row) => row.join("\t"))].join("\n");
+      const blob = new Blob(["\uFEFF" + csvContent], {
+        type: "text/csv;charset=utf-8;",
+      });
       const link = document.createElement("a");
       const objectUrl = window.URL.createObjectURL(blob);
       link.href = objectUrl;
-      link.download = `fichas_soporte_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.download = `registros_fichas_${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -138,13 +231,15 @@ export default function ReportesFichasPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (record: any) => {
     if (!confirm("¿Está seguro de eliminar esta ficha?")) return;
     try {
-      const res = await fetch(`/api/soporte/ficha?id=${id}`, { method: "DELETE" });
+      const endpoint = record.tipo === "Baja" ? "/api/soporte/baja" : "/api/soporte/ficha";
+      const idKey = record.tipo === "Baja" ? "IdBaja" : "IdSoporte";
+      const res = await fetch(`${endpoint}?id=${record.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Error al eliminar");
       await loadRecords();
-      setMessage("Ficha eliminada");
+      setMessage(`Ficha de ${record.tipo.toLowerCase()} eliminada`);
     } catch (e) {
       console.error(e);
       setMessage("No se pudo eliminar la ficha");
@@ -250,6 +345,7 @@ export default function ReportesFichasPage() {
               <thead className="bg-muted text-xs">
                 <tr>
                   <th className="p-3 text-left">Nº Ficha</th>
+                  <th className="p-3 text-left">Tipo</th>
                   <th className="p-3 text-left">Responsable</th>
                   <th className="p-3 text-left">Dependencia</th>
                   <th className="p-3 text-left">Bien</th>
@@ -260,27 +356,28 @@ export default function ReportesFichasPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} className="p-6 text-center">Cargando...</td></tr>
+                  <tr><td colSpan={8} className="p-6 text-center">Cargando...</td></tr>
                 ) : filteredRecords.length === 0 ? (
-                  <tr><td colSpan={7} className="p-6 text-center">No hay registros</td></tr>
+                  <tr><td colSpan={8} className="p-6 text-center">No hay registros</td></tr>
                 ) : (
                   filteredRecords.map((r) => (
-                    <tr key={r.IdSoporte} className="border-t hover:bg-slate-50 transition-colors text-xs">
-                      <td className="p-3 font-medium text-slate-700">{r.NumeroFicha || '-'}</td>
-                      <td className="p-3">{r.Responsable || '-'}</td>
-                      <td className="p-3">{r.Dependencia || '-'}</td>
-                      <td className="p-3">{r.Bien?.Descripcion || r.Bien?.CodigoInventario || '-'}</td>
-                      <td className="p-3">{r.FechaRegistro ? new Date(r.FechaRegistro).toLocaleString() : '-'}</td>
-                      <td className="p-3">{r.Estado?.EstadoBien || '-'}</td>
+                    <tr key={`${r.tipo}-${r.id}`} className="border-t hover:bg-slate-50 transition-colors text-xs">
+                      <td className="p-3 font-medium text-slate-700">{r.numero || '-'}</td>
+                      <td className="p-3">{r.tipo || '-'}</td>
+                      <td className="p-3">{r.responsable || '-'}</td>
+                      <td className="p-3">{r.dependencia || '-'}</td>
+                      <td className="p-3">{r.bien?.Descripcion || r.bien?.CodigoInventario || '-'}</td>
+                      <td className="p-3">{r.fechaRegistro ? new Date(r.fechaRegistro).toLocaleString() : '-'}</td>
+                      <td className="p-3">{r.estado || '-'}</td>
                       <td className="p-3 text-center">
                         <div className="flex justify-center gap-1">
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-teal-600" onClick={() => { setViewingRecord(r); setViewOpen(true); }} title="Ver">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" onClick={() => router.push(`/soporte/ficha?id=${r.IdSoporte}`)} title="Editar">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" onClick={() => router.push(`/soporte/${r.tipo === 'Baja' ? 'baja' : 'ficha'}?id=${r.id}`)} title="Editar">
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={() => handleDelete(r.IdSoporte)} title="Eliminar">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={() => handleDelete(r)} title="Eliminar">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -316,26 +413,26 @@ export default function ReportesFichasPage() {
               <div className="flex justify-between items-center border-b-2 border-slate-900 pb-4">
                 <div className="text-left">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">UNIDAD DE ESTADISTICA E INFORMATICA</p>
-                  <h2 className="text-base font-extrabold text-slate-800 mt-1">FICHA DE SOPORTE TÉCNICO</h2>
+                  <h2 className="text-base font-extrabold text-slate-800 mt-1">FICHA DE {viewingRecord.tipo?.toUpperCase() || 'REGISTRO'}</h2>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-bold bg-slate-100 px-3 py-1 rounded border text-slate-800 inline-block">Nº {viewingRecord.NumeroFicha || '-'}</p>
-                  <p className="text-[10px] text-slate-500 mt-1.5">Fecha: {viewingRecord.FechaRegistro ? new Date(viewingRecord.FechaRegistro).toLocaleString() : '-'}</p>
+                  <p className="text-xs font-bold bg-slate-100 px-3 py-1 rounded border text-slate-800 inline-block">Nº {viewingRecord.numero || '-'}</p>
+                  <p className="text-[10px] text-slate-500 mt-1.5">Fecha: {viewingRecord.fechaRegistro ? new Date(viewingRecord.fechaRegistro).toLocaleString() : '-'}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4 text-[11px] bg-slate-50 p-3 rounded border">
                 <div>
                   <span className="font-bold block text-slate-500">RESPONSABLE DEL BIEN</span>
-                  <span className="font-medium text-xs text-slate-800">{viewingRecord.Responsable || '-'}</span>
+                  <span className="font-medium text-xs text-slate-800">{viewingRecord.responsable || '-'}</span>
                 </div>
                 <div>
                   <span className="font-bold block text-slate-500">DEPENDENCIA (ÁREA)</span>
-                  <span className="font-medium text-xs text-slate-800">{viewingRecord.Dependencia || '-'}</span>
+                  <span className="font-medium text-xs text-slate-800">{viewingRecord.dependencia || '-'}</span>
                 </div>
                 <div>
                   <span className="font-bold block text-slate-500">AMBIENTE</span>
-                  <span className="font-medium text-xs text-slate-800">{viewingRecord.Ambiente || '-'}</span>
+                  <span className="font-medium text-xs text-slate-800">{viewingRecord.ambiente || '-'}</span>
                 </div>
               </div>
 

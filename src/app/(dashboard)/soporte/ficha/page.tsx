@@ -479,138 +479,241 @@ export default function FichaSoportePage() {
     const worksheet = workbook.addWorksheet("Ficha Soporte");
 
     worksheet.columns = [
-      { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }
+      { width: 16 },
+      { width: 16 },
+      { width: 16 },
+      { width: 16 },
+      { width: 16 },
+      { width: 16 }
     ];
+
+    worksheet.pageSetup = {
+      paperSize: 9,
+      orientation: "portrait",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      margins: {
+        left: 0.5,
+        right: 0.5,
+        top: 0.75,
+        bottom: 0.75,
+        header: 0.3,
+        footer: 0.3
+      }
+    };
 
     const applyHeaderStyle = (cell: any) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+      cell.font = { bold: true, size: 10 };
+      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" }
+      };
     };
-    
+
     const applyCellStyle = (cell: any) => {
       cell.font = { size: 10 };
-      cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-      cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+      cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" }
+      };
     };
 
-    worksheet.mergeCells('A1:F1');
-    const titleCell = worksheet.getCell('A1');
-    titleCell.value = "FICHA DE SOPORTE TÉCNICO";
-    titleCell.font = { bold: true, size: 16 };
-    titleCell.alignment = { horizontal: 'center' };
+    const checked = (value: boolean) => (value ? "✔" : "");
+    const tipoBien = (ficha.TipoBien || "").toLowerCase();
+    const condicion = (ficha.Condicion?.Condicion || "").toLowerCase();
+    const estado = (ficha.Estado?.EstadoBien || "").toLowerCase();
 
-    worksheet.mergeCells('A2:F2');
-    worksheet.getCell('A2').value = `Nº Ficha: ${ficha.NumeroFicha || ""} | Fecha: ${ficha.FechaRegistro ? new Date(ficha.FechaRegistro).toLocaleString() : ""}`;
-    worksheet.getCell('A2').alignment = { horizontal: 'center' };
-    worksheet.getCell('A2').font = { size: 10 };
+    worksheet.mergeCells("A1:F1");
+    worksheet.getCell("A1").value = "FICHA DE SOPORTE TÉCNICO";
+    worksheet.getCell("A1").font = { bold: true, size: 16 };
+    worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
 
-    worksheet.mergeCells('A4:B4'); worksheet.getCell('A4').value = "RESPONSABLE DEL BIEN";
-    worksheet.mergeCells('C4:D4'); worksheet.getCell('C4').value = "DEPENDENCIA (ÁREA)";
-    worksheet.mergeCells('E4:F4'); worksheet.getCell('E4').value = "AMBIENTE";
-    ['A4', 'C4', 'E4'].forEach(ref => applyHeaderStyle(worksheet.getCell(ref)));
+    worksheet.mergeCells("A2:F2");
+    worksheet.getCell("A2").value = `Nº Ficha: ${ficha.NumeroFicha || ""} | Fecha: ${ficha.FechaRegistro ? new Date(ficha.FechaRegistro).toLocaleString() : ""}`;
+    worksheet.getCell("A2").font = { size: 10 };
+    worksheet.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
 
-    worksheet.mergeCells('A5:B5'); worksheet.getCell('A5').value = ficha.Responsable || "-";
-    worksheet.mergeCells('C5:D5'); worksheet.getCell('C5').value = ficha.Dependencia || "-";
-    worksheet.mergeCells('E5:F5'); worksheet.getCell('E5').value = ficha.Ambiente || "-";
-    ['A5', 'C5', 'E5'].forEach(ref => applyCellStyle(worksheet.getCell(ref)));
+    worksheet.mergeCells("A4:D4");
+    worksheet.getCell("A4").value = "UNIDAD ORGANICA";
+    applyHeaderStyle(worksheet.getCell("A4"));
+    worksheet.mergeCells("A5:D5");
+    worksheet.getCell("A5").value = ficha.UnidadOrganica || "UNIDAD DE ESTADISTICA E INFORMATICA";
+    applyCellStyle(worksheet.getCell("A5"));
 
-    worksheet.mergeCells('A7:F7');
-    const tipoHeader = worksheet.getCell('A7');
-    tipoHeader.value = "I. TIPO DEL BIEN";
-    applyHeaderStyle(tipoHeader);
-    
-    worksheet.mergeCells('A8:F8');
-    const tipoValue = worksheet.getCell('A8');
-    tipoValue.value = ficha.TipoBien || "-";
-    applyCellStyle(tipoValue);
+    worksheet.mergeCells("E4:F4");
+    worksheet.getCell("E4").value = "FECHA";
+    applyHeaderStyle(worksheet.getCell("E4"));
+    worksheet.mergeCells("E5:F5");
+    worksheet.getCell("E5").value = ficha.FechaRegistro ? new Date(ficha.FechaRegistro).toLocaleDateString() : "";
+    applyCellStyle(worksheet.getCell("E5"));
 
-    worksheet.mergeCells('A10:F10');
-    const detalleHeader = worksheet.getCell('A10');
-    detalleHeader.value = "II. DETALLE TÉCNICO DEL BIEN";
-    applyHeaderStyle(detalleHeader);
+    worksheet.mergeCells("A7:F7");
+    worksheet.getCell("A7").value = "USUARIO RESPONSABLE DEL BIEN";
+    applyHeaderStyle(worksheet.getCell("A7"));
 
-    const headersDetalle = ["Código Inventario", "Código Patrimonial", "Bien / Descripción", "Marca", "Modelo", "Nº Serie"];
-    headersDetalle.forEach((header, index) => {
-      const cell = worksheet.getCell(11, index + 1);
-      cell.value = header;
-      applyHeaderStyle(cell);
+    worksheet.mergeCells("A8:B8");
+    worksheet.getCell("A8").value = "Responsable";
+    applyHeaderStyle(worksheet.getCell("A8"));
+    worksheet.mergeCells("C8:D8");
+    worksheet.getCell("C8").value = "Dependencia";
+    applyHeaderStyle(worksheet.getCell("C8"));
+    worksheet.mergeCells("E8:F8");
+    worksheet.getCell("E8").value = "Ambiente";
+    applyHeaderStyle(worksheet.getCell("E8"));
+
+    worksheet.mergeCells("A9:B9");
+    worksheet.getCell("A9").value = ficha.Responsable || "-";
+    applyCellStyle(worksheet.getCell("A9"));
+    worksheet.mergeCells("C9:D9");
+    worksheet.getCell("C9").value = ficha.Dependencia || "-";
+    applyCellStyle(worksheet.getCell("C9"));
+    worksheet.mergeCells("E9:F9");
+    worksheet.getCell("E9").value = ficha.Ambiente || "-";
+    applyCellStyle(worksheet.getCell("E9"));
+
+    worksheet.mergeCells("A11:F11");
+    worksheet.getCell("A11").value = "I. TIPO DEL BIEN";
+    applyHeaderStyle(worksheet.getCell("A11"));
+
+    worksheet.mergeCells("A12:B12");
+    worksheet.getCell("A12").value = `a) Informático ${checked(tipoBien === "informático" || tipoBien === "informatico")}`;
+    applyCellStyle(worksheet.getCell("A12"));
+    worksheet.mergeCells("C12:D12");
+    worksheet.getCell("C12").value = `b) Comunicación ${checked(tipoBien === "comunicación" || tipoBien === "comunicacion")}`;
+    applyCellStyle(worksheet.getCell("C12"));
+    worksheet.mergeCells("E12:F12");
+    worksheet.getCell("E12").value = `c) Eléctrico ${checked(tipoBien === "eléctrico" || tipoBien === "electrico")}`;
+    applyCellStyle(worksheet.getCell("E12"));
+
+    worksheet.mergeCells("A14:F14");
+    worksheet.getCell("A14").value = "II. DETALLE TÉCNICO";
+    applyHeaderStyle(worksheet.getCell("A14"));
+
+    worksheet.mergeCells("A15:B15");
+    worksheet.getCell("A15").value = "CÓDIGO INVENTARIO";
+    applyHeaderStyle(worksheet.getCell("A15"));
+    worksheet.mergeCells("C15:D15");
+    worksheet.getCell("C15").value = "CÓDIGO PATRIMONIAL";
+    applyHeaderStyle(worksheet.getCell("C15"));
+    worksheet.mergeCells("E15:F15");
+    worksheet.getCell("E15").value = "DESCRIPCIÓN";
+    applyHeaderStyle(worksheet.getCell("E15"));
+
+    worksheet.mergeCells("A16:B16");
+    worksheet.getCell("A16").value = ficha.Bien?.CodigoInventario || "-";
+    applyCellStyle(worksheet.getCell("A16"));
+    worksheet.mergeCells("C16:D16");
+    worksheet.getCell("C16").value = ficha.Bien?.CodigoPatrimonial || "-";
+    applyCellStyle(worksheet.getCell("C16"));
+    worksheet.mergeCells("E16:F16");
+    worksheet.getCell("E16").value = ficha.Bien?.Descripcion || "-";
+    applyCellStyle(worksheet.getCell("E16"));
+
+    worksheet.mergeCells("A17:B17");
+    worksheet.getCell("A17").value = "MARCA";
+    applyHeaderStyle(worksheet.getCell("A17"));
+    worksheet.mergeCells("C17:D17");
+    worksheet.getCell("C17").value = "MODELO";
+    applyHeaderStyle(worksheet.getCell("C17"));
+    worksheet.mergeCells("E17:F17");
+    worksheet.getCell("E17").value = "SERIE";
+    applyHeaderStyle(worksheet.getCell("E17"));
+
+    worksheet.mergeCells("A18:B18");
+    worksheet.getCell("A18").value = ficha.Bien?.Marca?.Marca || "-";
+    applyCellStyle(worksheet.getCell("A18"));
+    worksheet.mergeCells("C18:D18");
+    worksheet.getCell("C18").value = ficha.Bien?.Modelo?.Modelo || "-";
+    applyCellStyle(worksheet.getCell("C18"));
+    worksheet.mergeCells("E18:F18");
+    worksheet.getCell("E18").value = ficha.Bien?.NumeroSerie || "-";
+    applyCellStyle(worksheet.getCell("E18"));
+
+    worksheet.mergeCells("A20:F20");
+    worksheet.getCell("A20").value = "III. CONDICIÓN DEL BIEN";
+    applyHeaderStyle(worksheet.getCell("A20"));
+
+    worksheet.mergeCells("A21:C21");
+    worksheet.getCell("A21").value = `Operativo ${checked(condicion === "operativo")}`;
+    applyCellStyle(worksheet.getCell("A21"));
+    worksheet.mergeCells("D21:F21");
+    worksheet.getCell("D21").value = `Inoperativo ${checked(condicion === "inoperativo")}`;
+    applyCellStyle(worksheet.getCell("D21"));
+
+    worksheet.mergeCells("A23:F23");
+    worksheet.getCell("A23").value = "IV. ESTADO DEL BIEN";
+    applyHeaderStyle(worksheet.getCell("A23"));
+
+    worksheet.mergeCells("A24:B24");
+    worksheet.getCell("A24").value = `Bueno ${checked(estado === "bueno")}`;
+    applyCellStyle(worksheet.getCell("A24"));
+    worksheet.mergeCells("C24:D24");
+    worksheet.getCell("C24").value = `Regular ${checked(estado === "regular")}`;
+    applyCellStyle(worksheet.getCell("C24"));
+    worksheet.mergeCells("E24:F24");
+    worksheet.getCell("E24").value = `Malo por reparar ${checked(estado === "reparar")}`;
+    applyCellStyle(worksheet.getCell("E24"));
+
+    worksheet.mergeCells("A25:F25");
+    worksheet.getCell("A25").value = `Malo para baja ${checked(estado === "baja")}`;
+    applyCellStyle(worksheet.getCell("A25"));
+
+    worksheet.mergeCells("A27:F27");
+    worksheet.getCell("A27").value = "V. TRABAJOS REALIZADOS";
+    applyHeaderStyle(worksheet.getCell("A27"));
+    worksheet.mergeCells("A28:F30");
+    worksheet.getCell("A28").value = ficha.TrabajosRealizados || "-";
+    applyCellStyle(worksheet.getCell("A28"));
+
+    worksheet.mergeCells("A32:F32");
+    worksheet.getCell("A32").value = "VI. DIAGNÓSTICO";
+    applyHeaderStyle(worksheet.getCell("A32"));
+    worksheet.mergeCells("A33:F35");
+    worksheet.getCell("A33").value = ficha.Diagnostico || "-";
+    applyCellStyle(worksheet.getCell("A33"));
+
+    worksheet.mergeCells("A37:F37");
+    worksheet.getCell("A37").value = "VII. RECOMENDACIÓN";
+    applyHeaderStyle(worksheet.getCell("A37"));
+    worksheet.mergeCells("A38:F40");
+    worksheet.getCell("A38").value = ficha.Recomendacion || "-";
+    applyCellStyle(worksheet.getCell("A38"));
+
+    worksheet.mergeCells("A42:B42");
+    worksheet.getCell("A42").value = "________________________";
+    worksheet.mergeCells("C42:D42");
+    worksheet.getCell("C42").value = "________________________";
+    worksheet.mergeCells("E42:F42");
+    worksheet.getCell("E42").value = "________________________";
+    ["A42", "C42", "E42"].forEach((ref) => {
+      worksheet.getCell(ref).font = { size: 10 };
+      worksheet.getCell(ref).alignment = { horizontal: "center", vertical: "middle" };
     });
 
-    const valuesDetalle = [
-      ficha.Bien?.CodigoInventario || "-",
-      ficha.Bien?.CodigoPatrimonial || "-",
-      ficha.Bien?.Descripcion || "-",
-      ficha.Bien?.Marca?.Marca || "-",
-      ficha.Bien?.Modelo?.Modelo || "-",
-      ficha.Bien?.NumeroSerie || "-"
-    ];
-    valuesDetalle.forEach((val, index) => {
-      const cell = worksheet.getCell(12, index + 1);
-      cell.value = val;
-      applyCellStyle(cell);
-    });
-
-    worksheet.mergeCells('A14:C14'); worksheet.getCell('A14').value = "III. CONDICIÓN DEL BIEN";
-    worksheet.mergeCells('D14:F14'); worksheet.getCell('D14').value = "IV. ESTADO DEL BIEN";
-    ['A14', 'D14'].forEach(ref => applyHeaderStyle(worksheet.getCell(ref)));
-
-    worksheet.mergeCells('A15:C15'); worksheet.getCell('A15').value = ficha.Condicion?.Condicion || "-";
-    worksheet.mergeCells('D15:F15'); worksheet.getCell('D15').value = ficha.Estado?.EstadoBien || "-";
-    ['A15', 'D15'].forEach(ref => applyCellStyle(worksheet.getCell(ref)));
-
-    worksheet.mergeCells('A17:F17'); worksheet.getCell('A17').value = "V. TRABAJOS REALIZADOS";
-    applyHeaderStyle(worksheet.getCell('A21'));
-    worksheet.mergeCells('A18:F19'); worksheet.getCell('A18').value = ficha.TrabajosRealizados || "-";
-    applyCellStyle(worksheet.getCell('A18'));
-
-    worksheet.mergeCells('A21:C21'); worksheet.getCell('A21').value = "VI. DIAGNÓSTICO";
-    worksheet.mergeCells('D21:F21'); worksheet.getCell('D21').value = "VII. RECOMENDACIÓN";
-    ['A25', 'D25'].forEach(ref => applyHeaderStyle(worksheet.getCell(ref)));
-
-    worksheet.mergeCells('A22:C23'); worksheet.getCell('A22').value = ficha.Diagnostico || "-";
-    worksheet.mergeCells('D22:F23'); worksheet.getCell('D22').value = ficha.Recomendacion || "-";
-    ['A22', 'D22'].forEach(ref => applyCellStyle(worksheet.getCell(ref)));
-
-    worksheet.mergeCells('A25:B25'); worksheet.getCell('A25').value = "";
-    worksheet.mergeCells('C25:D25'); worksheet.getCell('C25').value = "";
-    worksheet.mergeCells('E25:F25'); worksheet.getCell('E25').value = "";
-
-    // Filas 26-30 vacías para espacio de firma
-    for (let r = 26; r <= 30; r++) {
-      worksheet.mergeCells(`A${r}:B${r}`);
-      worksheet.mergeCells(`C${r}:D${r}`);
-      worksheet.mergeCells(`E${r}:F${r}`);
-    }
-
-    // Líneas de firma en fila 31
-    worksheet.mergeCells('A31:B31'); worksheet.getCell('A31').value = "________________________";
-    worksheet.mergeCells('C31:D31'); worksheet.getCell('C31').value = "________________________";
-    worksheet.mergeCells('E31:F31'); worksheet.getCell('E31').value = "________________________";
-    ['A31', 'C31', 'E31'].forEach(ref => {
-      const cell = worksheet.getCell(ref);
-      cell.font = { size: 10 };
-      cell.alignment = { horizontal: 'center' };
-    });
-
-    // Títulos de firma en fila 32
-    worksheet.mergeCells('A32:B32'); worksheet.getCell('A32').value = "Responsable de Soporte Técnico";
-    worksheet.mergeCells('C32:D32'); worksheet.getCell('C32').value = "Jefe(e) Unidad Estadística e Informática";
-    worksheet.mergeCells('E32:F32'); worksheet.getCell('E32').value = "Área Usuaria";
-    ['A32', 'C32', 'E32'].forEach(ref => {
-      const cell = worksheet.getCell(ref);
-      cell.font = { bold: true, size: 9 };
-      cell.alignment = { horizontal: 'center' };
+    worksheet.mergeCells("A43:B43");
+    worksheet.getCell("A43").value = "RESPONSABLE DE SOPORTE TÉCNICO";
+    worksheet.mergeCells("C43:D43");
+    worksheet.getCell("C43").value = "JEFE UNIDAD DE ESTADISTICA E INFORMATICA";
+    worksheet.mergeCells("E43:F43");
+    worksheet.getCell("E43").value = "AREA USUARIA";
+    ["A43", "C43", "E43"].forEach((ref) => {
+      worksheet.getCell(ref).font = { bold: true, size: 9 };
+      worksheet.getCell(ref).alignment = { horizontal: "center", vertical: "middle", wrapText: true };
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
     const data = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-
     const url = window.URL.createObjectURL(data);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Ficha_${ficha.NumeroFicha}.xlsx`);
+    link.setAttribute("download", `Ficha_${ficha.NumeroFicha || "soporte"}.xlsx`);
     document.body.appendChild(link);
     link.click();
     link.remove();
