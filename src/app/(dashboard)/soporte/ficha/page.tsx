@@ -739,17 +739,23 @@ export default function FichaSoportePage() {
 <style>
 
 @page{
-    size: A4;
-    margin: 20mm;
+    size: A4 portrait;
+    margin: 12mm;
 }
 
 *{
     box-sizing: border-box;
 }
 
+html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
 body{
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 11px;
+    font-size: 10px;
     color:#000;
     margin:0;
     padding:0;
@@ -757,15 +763,81 @@ body{
 
 .container{
     width:100%;
-    max-width:768px;
+    max-width:792px;
     margin:0 auto;
-    padding:0 10px;
+    padding:0 6px;
 }
 
 .page-header{
     position:relative;
-    padding-top:100px;
-    margin-bottom:8px;
+    padding-top:8px;
+    margin-bottom:10px;
+    display:grid;
+    grid-template-columns:70px 1fr 140px;
+    gap:12px;
+    align-items:start;
+}
+
+.logo-left,
+.logo-right{
+    width:70px;
+    height:70px;
+}
+
+.logo-left img,
+.logo-right img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+}
+
+.header-center{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:4px;
+    text-align:center;
+}
+
+.right-column{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:8px;
+}
+
+.date-box{
+    border:2px solid #000;
+    padding:8px 10px;
+    width:140px;
+    text-align:center;
+    line-height:1.2;
+}
+
+.date-box .label{
+    font-size:9px;
+    font-weight:bold;
+    margin-bottom:4px;
+}
+
+.date-box .value{
+    font-size:12px;
+}
+
+.subtitle{
+    font-size:10px;
+    font-weight:bold;
+    text-transform:uppercase;
+    letter-spacing:0.02em;
+}
+
+.titulo{
+    text-align:center;
+    font-weight:bold;
+    font-size:18px;
+    margin-bottom:4px;
+    line-height:1.1;
 }
 
 .corner-icon{
@@ -776,15 +848,15 @@ body{
 }
 
 .top-left{
-    width:90px;
-    height:90px;
+    width:70px;
+    height:70px;
     top:0;
     left:0;
 }
 
 .top-right{
-    width:80px;
-    height:80px;
+    width:70px;
+    height:70px;
     top:0;
     right:0;
 }
@@ -795,58 +867,78 @@ body{
     object-fit:contain;
 }
 
-.titulo{
-    text-align:center;
+.info-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:4px;
+}
+
+.info-table td{
+    border:1px solid #000;
+    padding:6px;
+}
+
+.info-table .label-cell{
+    width:24%;
     font-weight:bold;
-    font-size:18px;
-    margin-bottom:10px;
-    line-height:1.1;
+    background:#f3f4f6;
+}
+
+.info-table .value-cell{
+    width:76%;
 }
 
 table{
     width:100%;
     border-collapse:collapse;
     line-height:1.2;
+    page-break-inside:avoid;
 }
 
 td,
 th{
     border:1px solid #000;
-    padding:4px;
+    padding:5px;
     vertical-align:middle;
 }
 
 .seccion{
-    margin-top:14px;
-    margin-bottom:5px;
+    margin-top:10px;
+    margin-bottom:4px;
     font-weight:bold;
     line-height:1.2;
 }
 
 .recuadro{
     border:2px solid #000;
-    min-height:70px;
-    padding:12px;
+    min-height:50px;
+    padding:10px;
     line-height:1.2;
+    page-break-inside:avoid;
 }
 
 .firmas{
-    margin-top:42px;
+    margin-top:56px;
     display:flex;
     justify-content:space-between;
-    gap:18px;
+    align-items:flex-start;
+    gap:12px;
+    page-break-inside:avoid;
 }
 
 .firma{
-    width:30%;
+    width:32%;
     text-align:center;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
 }
 
 .firma-line{
     border-top:1px solid #000;
-    margin-top:24px;
+    margin-top:22px;
     padding-top:6px;
-    min-height:72px;
+    min-height:50px;
     display:flex;
     flex-direction:column;
     justify-content:flex-end;
@@ -855,12 +947,12 @@ th{
 
 .firma-text{
     font-weight:bold;
-    font-size:10px;
+    font-size:9px;
     line-height:1.2;
 }
 
 .fecha{
-    width:120px;
+    width:100px;
     text-align:center;
     font-weight:bold;
     line-height:1.2;
@@ -871,8 +963,8 @@ th{
 }
 
 .caja{
-    width:18px;
-    height:18px;
+    width:14px;
+    height:14px;
     border:2px solid #000;
     display:inline-block;
     vertical-align:middle;
@@ -883,40 +975,22 @@ th{
     text-align:center;
 }
 
-.recuadro{
-    border:2px solid #000;
-    min-height:80px;
-    padding:15px;
-}
-
-.firmas{
-    margin-top:60px;
-    display:flex;
-    justify-content:space-between;
-    gap:20px;
-}
-
-.firma{
-    width:30%;
-    text-align:center;
-}
-
 .linea{
     border-top:1px solid #000;
     padding-top:5px;
-}
-
-.fecha{
-    width:120px;
-    text-align:center;
-    font-weight:bold;
+    min-height:60px;
 }
 
 .footer{
-    margin-top:40px;
+    margin-top:24px;
 }
 
 @media print{
+
+    @page{
+        size: A4 portrait;
+        margin: 12mm;
+    }
 
     .no-print{
         display:none !important;
@@ -924,10 +998,12 @@ th{
 
     body{
         margin:0;
+        padding:0;
     }
 
     .container{
         width:100%;
+        max-width:792px;
     }
 }
 
@@ -939,30 +1015,23 @@ th{
 <div class="container">
 
     <div class="page-header">
-        <div class="corner-icon top-left"><img src="/logo1.png" alt="Logo 1" /></div>
-        <div class="corner-icon top-right"><img src="/logo2.png" alt="Logo 2" /></div>
-        <div class="titulo">
-            FICHA DE SOPORTE TECNICO
+      <div class="logo-left"><img src="/logo1.png" alt="Logo 1" /></div>
+      <div class="header-center">
+        <div class="titulo">FICHA DE SOPORTE TECNICO</div>
+      </div>
+      <div class="right-column">
+        <div class="logo-right"><img src="/logo2.png" alt="Logo 2" /></div>
+        <div class="date-box">
+          <div class="label">FECHA</div>
+          <div class="value">${ficha.FechaRegistro ? new Date(ficha.FechaRegistro).toLocaleDateString() : ''}</div>
         </div>
+      </div>
     </div>
 
-    <!-- ENCABEZADO -->
-
-    <table>
+    <table class="info-table">
         <tr>
-
-            <td style="width:20%;">
-                <b>Unidad Organica :</b>
-            </td>
-
-            <td>${ficha.UnidadOrganica || ''}</td>
-
-            <td class="fecha">
-                FECHA
-                <br><br>
-                ${ficha.FechaRegistro ? new Date(ficha.FechaRegistro).toLocaleDateString() : ''}
-            </td>
-
+            <td class="label-cell">Unidad Organica :</td>
+            <td class="value-cell">${ficha.UnidadOrganica || ''}</td>
         </tr>
     </table>
 
@@ -2232,18 +2301,30 @@ th{
         <div id="hidden-printable-ficha">
           {selectedFichaForPrint ? (
             <div>
-              <style>{`@page{size:A4;margin:20mm;} *{box-sizing:border-box;} body{font-family:Arial, Helvetica, sans-serif;font-size:11px;color:#000;margin:0;padding:0;} .container{width:88%;margin:0 auto;} .titulo{text-align:center;font-weight:bold;font-size:18px;margin-bottom:25px;} table{width:100%;border-collapse:collapse;} td, th{border:1px solid #000;padding:6px;vertical-align:middle;} .sin-borde{border:none !important;} .seccion{margin-top:18px;margin-bottom:8px;font-weight:bold;} .caja{width:18px;height:18px;border:2px solid #000;display:inline-block;vertical-align:middle;margin-left:6px;} .texto-centro{text-align:center;} .recuadro{border:2px solid #000;min-height:80px;padding:15px;} .firmas{margin-top:90px;display:flex;justify-content:space-between;gap:20px;} .firma{width:30%;text-align:center;} .linea{border-top:1px solid #000;padding-top:5px;} .fecha{width:120px;text-align:center;font-weight:bold;} .footer{margin-top:40px;} @media print{ .no-print{display:none !important;} body{margin:0;} .container{width:100%;} }`}</style>
+              <style>{`@page{size:A4 portrait;margin:12mm;} *{box-sizing:border-box;} html, body{width:100%;margin:0;padding:0;} body{font-family:Arial, Helvetica, sans-serif;font-size:10px;color:#000;margin:0;padding:0;} .container{width:100%;max-width:792px;margin:0 auto;padding:0 6px;} .page-header{position:relative;padding-top:8px;margin-bottom:10px;display:grid;grid-template-columns:70px 1fr 140px;gap:12px;align-items:start;} .logo-left,.logo-right{width:70px;height:70px;} .logo-left img,.logo-right img{width:100%;height:100%;object-fit:contain;} .header-center{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;text-align:center;} .right-column{display:flex;flex-direction:column;align-items:flex-end;gap:8px;} .date-box{border:2px solid #000;padding:8px 10px;width:140px;text-align:center;line-height:1.2;} .date-box .label{font-size:9px;font-weight:bold;margin-bottom:4px;} .date-box .value{font-size:12px;} .subtitle{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:0.02em;} .titulo{text-align:center;font-weight:bold;font-size:18px;margin-bottom:4px;line-height:1.1;}
+ .info-table{width:100%;border-collapse:collapse;margin-top:4px;} .info-table td{border:1px solid #000;padding:6px;} .info-table .label-cell{width:24%;font-weight:bold;background:#f3f4f6;} .info-table .value-cell{width:76%;} table{width:100%;border-collapse:collapse;line-height:1.2;page-break-inside:avoid;} td, th{border:1px solid #000;padding:5px;vertical-align:middle;} .seccion{margin-top:12px;margin-bottom:6px;font-weight:bold;} .recuadro{border:2px solid #000;min-height:60px;padding:10px;page-break-inside:avoid;} .firmas{margin-top:60px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;page-break-inside:avoid;} .firma{width:32%;text-align:center;display:flex;flex-direction:column;justify-content:flex-end;} .linea{border-top:1px solid #000;padding-top:5px;min-height:50px;} .fecha{width:100px;text-align:center;font-weight:bold;} .footer{margin-top:24px;} @media print{ .no-print{display:none !important;} body{margin:0;padding:0;} .container{width:100%;max-width:792px;} }`}</style>
 
               <div className="container">
 
-                <div className="titulo">FICHA DE SOPORTE TECNICO</div>
+                <div className="page-header">
+                  <div className="logo-left"><img src="/logo1.png" alt="Logo 1" /></div>
+                  <div className="header-center">
+                    <div className="titulo">FICHA DE SOPORTE TECNICO</div>
+                  </div>
+                  <div className="right-column">
+                    <div className="logo-right"><img src="/logo2.png" alt="Logo 2" /></div>
+                    <div className="date-box">
+                      <div className="label">FECHA</div>
+                      <div className="value">{selectedFichaForPrint.FechaRegistro ? new Date(selectedFichaForPrint.FechaRegistro).toLocaleDateString() : ''}</div>
+                    </div>
+                  </div>
+                </div>
 
-                <table>
+                <table className="info-table">
                   <tbody>
                     <tr>
-                      <td style={{ width: '20%' }}><b>Unidad Organica :</b></td>
-                      <td>{selectedFichaForPrint.UnidadOrganica || ''}</td>
-                      <td className="fecha">FECHA<br /><br />{selectedFichaForPrint.FechaRegistro ? new Date(selectedFichaForPrint.FechaRegistro).toLocaleDateString() : ''}</td>
+                      <td className="label-cell">Unidad Organica :</td>
+                      <td className="value-cell">{selectedFichaForPrint.UnidadOrganica || ''}</td>
                     </tr>
                   </tbody>
                 </table>
