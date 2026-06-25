@@ -1,26 +1,45 @@
 import { NextResponse } from "next/server";
 import { executeQuery } from "@/lib/db";
 
-// Obtener todas las fichas de baja
-export async function GET() {
-  try {
-    const queryText = `
-      SELECT 
-          bb.*,
-          b.CodigoInventario AS Bien_CodigoInventario, b.CodigoPatrimonial AS Bien_CodigoPatrimonial, b.Descripcion AS Bien_Descripcion, b.NumeroSerie AS Bien_NumeroSerie, b.Activo AS Bien_Activo,
-          c.Condicion AS Condicion_Condicion, c.Activo AS Condicion_Activo,
-          e.EstadoBien AS Estado_EstadoBien, e.Activo AS Estado_Activo,
-          u.Nombres AS Usuario_Nombres, u.Usuario AS Usuario_Usuario
-      FROM BajasBienes bb
-      LEFT JOIN Bienes b ON bb.IdBien = b.IdBien
-      LEFT JOIN CondicionesBien c ON bb.IdCondicion = c.IdCondicion
-      LEFT JOIN EstadosDelBien e ON bb.IdEstadoBien = e.IdEstadoBien
-      LEFT JOIN Usuarios u ON bb.IdUsuarioRegistro = u.IdUsuario
-      ORDER BY bb.FechaRegistro DESC
-    `;
-    const result = await executeQuery(queryText);
+function parseNullableInt(value: any): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : parseInt(String(value), 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
 
-    const fichas = result.recordset.map((row: any) => ({
+function toNullableString(value: any): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text.length ? text : null;
+}
+
+async function enrichBajas(baseRows: any[]) {
+  if (!baseRows || baseRows.length === 0) return [];
+
+  const bienIds = Array.from(new Set(baseRows.map((r: any) => parseNullableInt(r.IdBien)).filter((v) => v !== null))) as number[];
+  const condicionIds = Array.from(new Set(baseRows.map((r: any) => parseNullableInt(r.IdCondicion)).filter((v) => v !== null))) as number[];
+  const estadoIds = Array.from(new Set(baseRows.map((r: any) => parseNullableInt(r.IdEstadoBien)).filter((v) => v !== null))) as number[];
+  const usuarioIds = Array.from(new Set(baseRows.map((r: any) => parseNullableInt(r.IdUsuarioRegistro)).filter((v) => v !== null))) as number[];
+
+  const [bienesResult, condicionesResult, estadosResult, usuariosResult] = await Promise.all([
+    bienIds.length ? executeQuery(`SELECT IdBien, CodigoInventario, CodigoPatrimonial, Descripcion, NumeroSerie, IdMarca, Modelo, Activo FROM Bienes WHERE IdBien IN (${bienIds.join(",")})`) : Promise.resolve({ recordset: [] }),
+    condicionIds.length ? executeQuery(`SELECT IdCondicion, Condicion, Activo FROM CondicionesBien WHERE IdCondicion IN (${condicionIds.join(",")})`) : Promise.resolve({ recordset: [] }),
+    estadoIds.length ? executeQuery(`SELECT IdEstadoBien, EstadoBien, Activo FROM EstadosDelBien WHERE IdEstadoBien IN (${estadoIds.join(",")})`) : Promise.resolve({ recordset: [] }),
+    usuarioIds.length ? executeQuery(`SELECT IdUsuario, Nombres, Usuario FROM Usuarios WHERE IdUsuario IN (${usuarioIds.join(",")})`) : Promise.resolve({ recordset: [] }),
+  ]);
+
+  const bienesMap = new Map((bienesResult.recordset || []).map((b: any) => [b.IdBien, b]));
+  const condicionesMap = new Map((condicionesResult.recordset || []).map((c: any) => [c.IdCondicion, c]));
+  const estadosMap = new Map((estadosResult.recordset || []).map((e: any) => [e.IdEstadoBien, e]));
+  const usuariosMap = new Map((usuariosResult.recordset || []).map((u: any) => [u.IdUsuario, u]));
+
+  return baseRows.map((row: any) => {
+    const bien = row.IdBien ? bienesMap.get(row.IdBien) : null;
+    const condicion = row.IdCondicion ? condicionesMap.get(row.IdCondicion) : null;
+    const estado = row.IdEstadoBien ? estadosMap.get(row.IdEstadoBien) : null;
+    const usuario = row.IdUsuarioRegistro ? usuariosMap.get(row.IdUsuarioRegistro) : null;
+
+    return {
       IdBaja: row.IdBaja,
       NumeroFichaBaja: row.NumeroFichaBaja,
       FechaRegistro: row.FechaRegistro,
@@ -37,38 +56,36 @@ export async function GET() {
       CausalBaja: row.CausalBaja,
       Observacion: row.Observacion,
       IdUsuarioRegistro: row.IdUsuarioRegistro,
-      Bien: row.IdBien
+      Bien: bien
         ? {
-            IdBien: row.IdBien,
-            CodigoInventario: row.Bien_CodigoInventario,
-            CodigoPatrimonial: row.Bien_CodigoPatrimonial,
-            Descripcion: row.Bien_Descripcion,
-            NumeroSerie: row.Bien_NumeroSerie,
-            Activo: row.Bien_Activo,
+            IdBien: bien.IdBien,
+            CodigoInventario: bien.CodigoInventario,
+            CodigoPatrimonial: bien.CodigoPatrimonial,
+            Descripcion: bien.Descripcion,
+            NumeroSerie: bien.NumeroSerie,
+            Marca: bien.IdMarca ? { IdMarca: bien.IdMarca } : null,
+            Modelo: bien.Modelo ? { Modelo: bien.Modelo } : null,
+            Activo: bien.Activo,
           }
         : null,
-      Condicion: row.IdCondicion
-        ? {
-            IdCondicion: row.IdCondicion,
-            Condicion: row.Condicion_Condicion,
-            Activo: row.Condicion_Activo,
-          }
+      Condicion: condicion
+        ? { IdCondicion: condicion.IdCondicion, Condicion: condicion.Condicion, Activo: condicion.Activo }
         : null,
-      Estado: row.IdEstadoBien
-        ? {
-            IdEstadoBien: row.IdEstadoBien,
-            EstadoBien: row.Estado_EstadoBien,
-            Activo: row.Estado_Activo,
-          }
+      Estado: estado
+        ? { IdEstadoBien: estado.IdEstadoBien, EstadoBien: estado.EstadoBien, Activo: estado.Activo }
         : null,
-      UsuarioRegistro: row.IdUsuarioRegistro
-        ? {
-            Nombres: row.Usuario_Nombres,
-            Usuario: row.Usuario_Usuario,
-          }
+      UsuarioRegistro: usuario
+        ? { Nombres: usuario.Nombres, Usuario: usuario.Usuario }
         : null,
-    }));
+    };
+  });
+}
 
+// Obtener todas las fichas de baja
+export async function GET() {
+  try {
+    const result = await executeQuery(`EXEC sp_ConsultaBajaBien @Accion = @Accion`, { Accion: "L" });
+    const fichas = await enrichBajas(result.recordset || []);
     return NextResponse.json(fichas);
   } catch (error) {
     console.error("Error en GET /api/soporte/baja:", error);
@@ -92,37 +109,48 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await executeQuery(
-      `INSERT INTO BajasBienes (
-        NumeroFichaBaja, UnidadOrganica, IdBien, Responsable, Dependencia, 
-        Ambiente, TipoBien, IdCondicion, IdEstadoBien, Fundamentacion, 
-        Recomendacion, CausalBaja, Observacion, IdUsuarioRegistro, FechaRegistro
-       ) 
-       OUTPUT INSERTED.* 
-       VALUES (
-        @NumeroFichaBaja, @UnidadOrganica, @IdBien, @Responsable, @Dependencia,
-        @Ambiente, @TipoBien, @IdCondicion, @IdEstadoBien, @Fundamentacion,
-        @Recomendacion, @CausalBaja, @Observacion, @IdUsuarioRegistro, GETDATE()
-       )`,
+    await executeQuery(
+      `EXEC sp_MantenimientoBajaBien
+         @Accion = @Accion,
+         @NumeroFichaBaja = @NumeroFichaBaja,
+         @UnidadOrganica = @UnidadOrganica,
+         @IdBien = @IdBien,
+         @Responsable = @Responsable,
+         @Dependencia = @Dependencia,
+         @Ambiente = @Ambiente,
+         @TipoBien = @TipoBien,
+         @IdCondicion = @IdCondicion,
+         @IdEstadoBien = @IdEstadoBien,
+         @Fundamentacion = @Fundamentacion,
+         @Recomendacion = @Recomendacion,
+         @CausalBaja = @CausalBaja,
+         @Observacion = @Observacion,
+         @IdUsuarioRegistro = @IdUsuarioRegistro`,
       {
-        NumeroFichaBaja: data.NumeroFichaBaja,
-        UnidadOrganica: data.UnidadOrganica || null,
-        IdBien: parseInt(data.IdBien),
-        Responsable: data.Responsable || null,
-        Dependencia: data.Dependencia || null,
-        Ambiente: data.Ambiente || null,
-        TipoBien: data.TipoBien || null,
-        IdCondicion: data.IdCondicion ? parseInt(data.IdCondicion) : null,
-        IdEstadoBien: data.IdEstadoBien ? parseInt(data.IdEstadoBien) : null,
-        Fundamentacion: data.Fundamentacion || null,
-        Recomendacion: data.Recomendacion || null,
-        CausalBaja: data.CausalBaja || null,
-        Observacion: data.Observacion || null,
-        IdUsuarioRegistro: data.IdUsuarioRegistro ? parseInt(data.IdUsuarioRegistro) : null,
+        Accion: "R",
+        NumeroFichaBaja: toNullableString(data.NumeroFichaBaja),
+        UnidadOrganica: toNullableString(data.UnidadOrganica),
+        IdBien: parseNullableInt(data.IdBien),
+        Responsable: toNullableString(data.Responsable),
+        Dependencia: toNullableString(data.Dependencia),
+        Ambiente: toNullableString(data.Ambiente),
+        TipoBien: toNullableString(data.TipoBien),
+        IdCondicion: parseNullableInt(data.IdCondicion),
+        IdEstadoBien: parseNullableInt(data.IdEstadoBien),
+        Fundamentacion: toNullableString(data.Fundamentacion),
+        Recomendacion: toNullableString(data.Recomendacion),
+        CausalBaja: toNullableString(data.CausalBaja),
+        Observacion: toNullableString(data.Observacion),
+        IdUsuarioRegistro: parseNullableInt(data.IdUsuarioRegistro),
       }
     );
-    
-    return NextResponse.json(result.recordset[0], { status: 201 });
+
+    const createdResult = await executeQuery(
+      `EXEC sp_ConsultaBajaBien @Accion = @Accion, @NumeroFichaBaja = @NumeroFichaBaja`,
+      { Accion: "F", NumeroFichaBaja: data.NumeroFichaBaja }
+    );
+    const createdRows = await enrichBajas(createdResult.recordset || []);
+    return NextResponse.json(createdRows[0] || { success: true }, { status: 201 });
   } catch (error) {
     console.error("Error en POST /api/soporte/baja:", error);
     return NextResponse.json(
@@ -135,45 +163,47 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const data = await request.json();
-    const id = parseInt(data.IdBaja || "", 10);
+    const id = parseNullableInt(data.IdBaja);
 
-    if (isNaN(id)) {
+    if (!id) {
       return NextResponse.json({ error: "IdBaja es requerido" }, { status: 400 });
     }
 
     await executeQuery(
-      `UPDATE BajasBienes
-       SET NumeroFichaBaja = @NumeroFichaBaja,
-           UnidadOrganica = @UnidadOrganica,
-           IdBien = @IdBien,
-           Responsable = @Responsable,
-           Dependencia = @Dependencia,
-           Ambiente = @Ambiente,
-           TipoBien = @TipoBien,
-           IdCondicion = @IdCondicion,
-           IdEstadoBien = @IdEstadoBien,
-           Fundamentacion = @Fundamentacion,
-           Recomendacion = @Recomendacion,
-           CausalBaja = @CausalBaja,
-           Observacion = @Observacion,
-           IdUsuarioRegistro = @IdUsuarioRegistro
-       WHERE IdBaja = @IdBaja`,
+      `EXEC sp_MantenimientoBajaBien
+         @Accion = @Accion,
+         @IdBaja = @IdBaja,
+         @NumeroFichaBaja = @NumeroFichaBaja,
+         @UnidadOrganica = @UnidadOrganica,
+         @IdBien = @IdBien,
+         @Responsable = @Responsable,
+         @Dependencia = @Dependencia,
+         @Ambiente = @Ambiente,
+         @TipoBien = @TipoBien,
+         @IdCondicion = @IdCondicion,
+         @IdEstadoBien = @IdEstadoBien,
+         @Fundamentacion = @Fundamentacion,
+         @Recomendacion = @Recomendacion,
+         @CausalBaja = @CausalBaja,
+         @Observacion = @Observacion,
+         @IdUsuarioRegistro = @IdUsuarioRegistro`,
       {
+        Accion: "A",
         IdBaja: id,
-        NumeroFichaBaja: data.NumeroFichaBaja || null,
-        UnidadOrganica: data.UnidadOrganica || null,
-        IdBien: data.IdBien ? parseInt(data.IdBien, 10) : null,
-        Responsable: data.Responsable || null,
-        Dependencia: data.Dependencia || null,
-        Ambiente: data.Ambiente || null,
-        TipoBien: data.TipoBien || null,
-        IdCondicion: data.IdCondicion ? parseInt(data.IdCondicion, 10) : null,
-        IdEstadoBien: data.IdEstadoBien ? parseInt(data.IdEstadoBien, 10) : null,
-        Fundamentacion: data.Fundamentacion || null,
-        Recomendacion: data.Recomendacion || null,
-        CausalBaja: data.CausalBaja || null,
-        Observacion: data.Observacion || null,
-        IdUsuarioRegistro: data.IdUsuarioRegistro ? parseInt(data.IdUsuarioRegistro, 10) : null,
+        NumeroFichaBaja: toNullableString(data.NumeroFichaBaja),
+        UnidadOrganica: toNullableString(data.UnidadOrganica),
+        IdBien: parseNullableInt(data.IdBien),
+        Responsable: toNullableString(data.Responsable),
+        Dependencia: toNullableString(data.Dependencia),
+        Ambiente: toNullableString(data.Ambiente),
+        TipoBien: toNullableString(data.TipoBien),
+        IdCondicion: parseNullableInt(data.IdCondicion),
+        IdEstadoBien: parseNullableInt(data.IdEstadoBien),
+        Fundamentacion: toNullableString(data.Fundamentacion),
+        Recomendacion: toNullableString(data.Recomendacion),
+        CausalBaja: toNullableString(data.CausalBaja),
+        Observacion: toNullableString(data.Observacion),
+        IdUsuarioRegistro: parseNullableInt(data.IdUsuarioRegistro),
       }
     );
 
@@ -187,9 +217,9 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = parseInt(searchParams.get("id") || "", 10);
+    const id = parseNullableInt(searchParams.get("id"));
 
-    if (isNaN(id)) {
+    if (!id) {
       return NextResponse.json({ error: "IdBaja es requerido" }, { status: 400 });
     }
 

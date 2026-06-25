@@ -410,11 +410,11 @@ export default function FichaSoportePage() {
   });
 
   const handleDelete = async (id: number) => {
-    if (confirm("¿Está seguro de eliminar esta ficha de soporte?")) {
+    if (confirm("¿Está seguro de cerrar este ticket de soporte?")) {
       try {
         await deleteFichaMutation.mutateAsync(id);
       } catch (error) {
-        alert("Error al eliminar la ficha");
+        alert("Error al cerrar la ficha");
       }
     }
   };
@@ -1373,6 +1373,7 @@ th{
               <th className="p-3 text-left">Área</th>
               <th className="p-3 text-left">Estado</th>
               <th className="p-3 text-left">Prioridad</th>
+              <th className="p-3 text-left">Estado Ticket</th>
               <th className="p-3 text-left">Usuario Reg.</th>
               <th className="p-3 text-center">Acciones</th>
             </tr>
@@ -1381,7 +1382,7 @@ th{
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="p-6 text-center">
+                <td colSpan={9} className="p-6 text-center">
                   Cargando...
                 </td>
               </tr>
@@ -1395,6 +1396,17 @@ th{
                   <td className="p-3">{ficha?.Dependencia || "-"}</td>
                   <td className="p-3">{ficha?.Estado?.EstadoBien || "-"}</td>
                   <td className="p-3">{ficha?.Prioridad?.NombrePrioridad || "-"}</td>
+                  <td className="p-3">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold ${
+                        String(ficha?.EstadoTicket || "").toLowerCase() === "cerrado"
+                          ? "bg-slate-100 text-slate-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {ficha?.EstadoTicket || "-"}
+                    </span>
+                  </td>
                   <td className="p-3 text-slate-500">{ficha?.Usuario_Nombres || ficha?.UsuarioSoporte?.Nombres || ficha?.UsuarioSoporte?.Usuario || "-"}</td>
                   <td className="p-3">
                     <div className="flex justify-center gap-1">
@@ -1432,7 +1444,7 @@ th{
                         variant="ghost"
                         className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={() => handleDelete(ficha.IdSoporte)}
-                        title="Eliminar"
+                        title="Cerrar ticket"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -1454,7 +1466,7 @@ th{
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="p-6 text-center">
+                <td colSpan={9} className="p-6 text-center">
                   No hay registros
                 </td>
               </tr>

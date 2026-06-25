@@ -19,18 +19,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEffect, useState } from "react";
-import { getMarcas, getModelos, getAreas, getCondiciones, getEstados, getCategorias } from "@/app/actions/catalogs";
+import { useEffect } from "react";
+import { getMarcas, getAreas, getCondiciones, getEstados, getCategorias } from "@/app/actions/catalogs";
 
 // Esquema de validación con Zod
 const bienSchema = z.object({
   CodigoInventario: z.string().optional(),
   CodigoPatrimonial: z.string().optional(),
   Descripcion: z.string().min(3, "La descripción es requerida"),
+  Modelo: z.string().optional(),
   IdCategoria: z.string().optional(),
   IdMarca: z.string().optional(),
-  IdModelo: z.string().optional(),
-  Modelo: z.string().optional(),
   IdArea: z.string().optional(),
   NumeroSerie: z.string().optional(),
   IdCondicion: z.string().optional(),
@@ -57,21 +56,11 @@ export default function BienFormModal({ bien, open, onOpenChange, readOnly = fal
     resolver: zodResolver(bienSchema),
   });
 
-  const [manualModeloMode, setManualModeloMode] = useState(false);
   const selectedMarca = watch("IdMarca");
   const selectedCategoria = watch("IdCategoria");
-  const selectedModeloId = watch("IdModelo");
 
   // Consultas para llenar los combos (Server Actions + React Query)
   const { data: marcas } = useQuery({ queryKey: ["marcas"], queryFn: () => getMarcas() });
-  const { data: modelos } = useQuery({ 
-    queryKey: ["modelos", selectedMarca, selectedCategoria], 
-    queryFn: () => getModelos(
-      selectedMarca ? parseInt(selectedMarca) : undefined,
-      selectedCategoria ? parseInt(selectedCategoria) : undefined
-    ),
-    enabled: true,
-  });
   const { data: areas } = useQuery({ queryKey: ["areas"], queryFn: () => getAreas() });
   const { data: condiciones } = useQuery({ queryKey: ["condiciones"], queryFn: () => getCondiciones() });
   const { data: estados } = useQuery({ queryKey: ["estados"], queryFn: () => getEstados() });
@@ -83,23 +72,20 @@ export default function BienFormModal({ bien, open, onOpenChange, readOnly = fal
   const selectedCatName = categorias?.find((c: any) => String(c.IdCategoria) === String(selectedCategoria))?.CategoriaBien;
   const selectedAreaName = areas?.find((a: any) => String(a.IdArea) === String(selectedArea))?.NombreArea;
   const selectedMarcaName = marcas?.find((m: any) => String(m.IdMarca) === String(selectedMarca))?.Marca;
-  const selectedModeloName = modelos?.find((m: any) => String(m.IdModelo) === String(selectedModeloId))?.Modelo;
   const selectedCondicionName = condiciones?.find((c: any) => String(c.IdCondicion) === String(selectedCondicion))?.Condicion;
   const selectedEstadoName = estados?.find((e: any) => String(e.IdEstadoBien) === String(selectedEstado))?.EstadoBien;
 
   // Llenar formulario al editar
   useEffect(() => {
     if (open) {
-      setManualModeloMode(false);
       if (bien) {
         reset({
           CodigoInventario: bien.CodigoInventario || "",
           CodigoPatrimonial: bien.CodigoPatrimonial || "",
           Descripcion: bien.Descripcion || "",
+          Modelo: bien.Modelo || "",
           IdCategoria: bien.IdCategoria ? String(bien.IdCategoria) : "",
           IdMarca: bien.IdMarca ? String(bien.IdMarca) : "",
-          IdModelo: bien.IdModelo ? String(bien.IdModelo) : "",
-          Modelo: bien.Modelo?.Modelo || "",
           IdArea: bien.IdArea ? String(bien.IdArea) : "",
           NumeroSerie: bien.NumeroSerie || "",
           IdCondicion: bien.IdCondicion ? String(bien.IdCondicion) : "",
@@ -111,10 +97,9 @@ export default function BienFormModal({ bien, open, onOpenChange, readOnly = fal
           CodigoInventario: "",
           CodigoPatrimonial: "",
           Descripcion: "",
+          Modelo: "",
           IdCategoria: "",
           IdMarca: "",
-          IdModelo: "",
-          Modelo: "",
           IdArea: "",
           NumeroSerie: "",
           IdCondicion: "",
@@ -249,71 +234,8 @@ export default function BienFormModal({ bien, open, onOpenChange, readOnly = fal
               </Select>
             </div>
             <div className="space-y-1">
-              <div className="flex justify-between items-center gap-3">
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Modelo</label>
-                </div>
-                {!readOnly && (
-                  <Button
-                    variant={manualModeloMode ? "secondary" : "outline"}
-                    size="sm"
-                    type="button"
-                    onClick={() => {
-                      setManualModeloMode(true);
-                      setValue("Modelo", "");
-                    }}
-                    className="h-9"
-                  >
-                    Agregar
-                  </Button>
-                )}
-              </div>
-              <Select
-                value={selectedModeloId ? String(selectedModeloId) : ""}
-                onValueChange={(val) => {
-                  setValue("IdModelo", val as any);
-                  setValue("Modelo", "");
-                }}
-                disabled={readOnly}
-              >
-                <SelectTrigger className="border-slate-200">
-                  <SelectValue placeholder="Seleccionar modelo">{selectedModeloName}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {modelos?.map((m: any) => (
-                    <SelectItem key={m.IdModelo} value={m.IdModelo.toString()}>
-                      {m.Modelo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {manualModeloMode && !readOnly && (
-                <div className="space-y-1">
-                  <Input
-                    {...register("Modelo")}
-                    placeholder="Escribe el nombre del modelo"
-                    className="border-slate-200"
-                    readOnly={readOnly}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    onClick={() => {
-                      setManualModeloMode(false);
-                      setValue("Modelo", "");
-                    }}
-                    className="mt-1 h-9"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              )}
-              <p className="text-xs text-slate-500">
-                {manualModeloMode
-                  ? "Escribe un nuevo modelo abajo."
-                  : "Selecciona un modelo existente de la lista."}
-              </p>
+              <label className="text-sm font-medium text-slate-700">Modelo</label>
+              <Input {...register("Modelo")} placeholder="Ej. ThinkPad T14" className="border-slate-200" readOnly={readOnly} />
             </div>
           </div>
 

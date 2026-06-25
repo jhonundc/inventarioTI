@@ -14,9 +14,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Buscar usuario usando el procedimiento almacenado `pro_LoginUsuario`
+    // Buscar usuario usando el procedimiento almacenado `sp_LoginUsuario`
     const userResult = await executeQuery(
-      `EXEC pro_LoginUsuario @Usuario = @Usuario`,
+      `EXEC sp_LoginUsuario @Usuario = @Usuario`,
       { Usuario: username }
     );
     const user = userResult.recordset?.[0];
@@ -42,14 +42,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Credenciales inválidas" },
         { status: 401 }
-      );
-    }
-
-    // Verificar si el usuario está activo
-    if (!user.Activo) {
-      return NextResponse.json(
-        { error: "Usuario inactivo" },
-        { status: 403 }
       );
     }
 

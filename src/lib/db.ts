@@ -3,12 +3,14 @@ import { config as dotenvConfig } from "dotenv";
 
 dotenvConfig({ path: ".env" });
 
+const getEnv = (key: string, fallback = "") => process.env[key]?.trim() ?? fallback;
+
 const config: sql.config = {
-  server: process.env.DB_SERVER || "localhost",
-  port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 1433,
-  database: process.env.DB_NAME || process.env.DB_DATABASE || "SoporteTI",
-  user: process.env.DB_USER || "",
-  password: process.env.DB_PASS || "",
+  server: getEnv("DB_SERVER") || "localhost",
+  port: getEnv("DB_PORT") ? parseInt(getEnv("DB_PORT"), 10) : 1433,
+  database: getEnv("DB_NAME") || getEnv("DB_DATABASE") || "SoporteTI",
+  user: getEnv("DB_USER") || "",
+  password: getEnv("DB_PASS") || "",
   options: {
     encrypt: false,
     trustServerCertificate: true,
@@ -65,12 +67,12 @@ function addParams(request: sql.Request, params: Record<string, any>) {
     try {
       // null / undefined -> send explicit null with inferred type
       if (value === null || value === undefined) {
-        if (lowerKey.includes("id")) {
-          request.input(key, sql.Int, null);
-        } else if (lowerKey.includes("fecha")) {
+        if (lowerKey.includes("fecha")) {
           request.input(key, sql.Date, null);
         } else if (lowerKey.includes("activo")) {
           request.input(key, sql.Bit, null);
+        } else if (lowerKey.includes("id")) {
+          request.input(key, sql.Int, null);
         } else {
           request.input(key, sql.VarChar, null);
         }

@@ -45,7 +45,7 @@ export default function BienesPage() {
   const [editingBien, setEditingBien] = useState<any>(null);
   const [readOnlyMode, setReadOnlyMode] = useState(false);
 
-  // Mutaciones para deactivar y eliminar
+  // Mutaciones para activar/desactivar y dar de baja
   const toggleActivoMutation = useMutation({
     mutationFn: async (bien: any) => {
       const res = await fetch("/api/bienes", {
@@ -77,7 +77,7 @@ export default function BienesPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Error al eliminar el bien");
+        throw new Error(err.error || "Error al dar de baja el bien");
       }
       return res.json();
     },
@@ -96,7 +96,7 @@ export default function BienesPage() {
   };
 
   const handleDelete = (id: number) => {
-    if (confirm("¿Está seguro de eliminar de forma permanente este bien?")) {
+    if (confirm("¿Está seguro de dar de baja este bien? Se marcará como inactivo.")) {
       deleteMutation.mutate(id);
     }
   };
@@ -181,9 +181,9 @@ export default function BienesPage() {
       cell: (info: any) => info.row.original.Marca?.Marca || "-",
     },
     {
-      accessorKey: "Modelo.Modelo",
+      accessorKey: "Modelo",
       header: "Modelo",
-      cell: (info: any) => info.row.original.Modelo?.Modelo || "-",
+      cell: (info: any) => info.row.original.Modelo || "-",
     },
     {
       accessorKey: "Area.NombreArea",
@@ -248,7 +248,7 @@ export default function BienesPage() {
                   variant="ghost" 
                   size="icon" 
                   className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" 
-                  title="Eliminar"
+                  title="Dar de baja (inactivar)"
                   onClick={() => handleDelete(bien.IdBien)}
                 >
                   <Trash2 className="h-4 w-4" />

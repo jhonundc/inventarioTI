@@ -330,12 +330,12 @@ export default function SoftwareFormModal({
                 disabled={readOnly}
               >
                 <SelectTrigger>
-                  <SelectValue>{watch("EstadoLicencia") === "1" ? "Vigente" : watch("EstadoLicencia") === "2" ? "Vencida" : watch("EstadoLicencia") === "3" ? "Suspendida" : "Selecciona un estado"}</SelectValue>
+                  <SelectValue>{watch("EstadoLicencia") || "Selecciona un estado"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Vigente</SelectItem>
-                  <SelectItem value="2">Vencida</SelectItem>
-                  <SelectItem value="3">Suspendida</SelectItem>
+                  <SelectItem value="Vigente">Vigente</SelectItem>
+                  <SelectItem value="Vencida">Vencida</SelectItem>
+                  <SelectItem value="Suspendida">Suspendida</SelectItem>
                 </SelectContent>
               </Select>
               {errors.EstadoLicencia && (

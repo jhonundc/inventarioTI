@@ -5,8 +5,8 @@ import { executeQuery } from "@/lib/db";
 export async function GET(request: Request) {
   try {
     const [bienesResult, componentesResult, softwareResult, countsResult, areaResult, mesResult, diaResult] = await Promise.all([
-      executeQuery(`EXEC pro_ObtenerBienesCatalogo`),
-      executeQuery(`EXEC pro_ObtenerBienesComponentes`),
+      executeQuery(`EXEC sp_ConsultaBien @Accion = @Accion`, { Accion: "L" }),
+      executeQuery(`EXEC sp_ConsultaBienComponente @Accion = @Accion`, { Accion: "L" }),
       executeQuery(`EXEC pro_ObtenerBienesSoftware @Activo = @Activo`, { Activo: null }),
       executeQuery(`
         SELECT

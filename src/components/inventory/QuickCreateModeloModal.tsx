@@ -12,7 +12,7 @@ interface QuickCreateModeloModalProps {
   idCategoria?: string;
 }
 
-export default function QuickCreateModeloModal({ idMarca, idCategoria }: QuickCreateModeloModalProps) {
+export default function QuickCreateModeloModal(_: QuickCreateModeloModalProps) {
   const [open, setOpen] = useState(false);
   const [modelo, setModelo] = useState("");
   const queryClient = useQueryClient();
@@ -22,11 +22,7 @@ export default function QuickCreateModeloModal({ idMarca, idCategoria }: QuickCr
       const res = await fetch("/api/modelos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          Modelo: nombreModelo,
-          IdMarca: idMarca,
-          IdCategoria: idCategoria
-        }),
+        body: JSON.stringify({ Modelo: nombreModelo }),
       });
       if (!res.ok) throw new Error("Error al crear el modelo");
       return res.json();
@@ -41,18 +37,18 @@ export default function QuickCreateModeloModal({ idMarca, idCategoria }: QuickCr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!modelo.trim() || !idMarca || !idCategoria) return;
+    if (!modelo.trim()) return;
     mutation.mutate(modelo);
   };
 
-  const isDisabled = !idMarca || !idCategoria;
+  const isDisabled = false;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger 
         className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center disabled:text-slate-400 disabled:cursor-not-allowed"
         disabled={isDisabled}
-        title={isDisabled ? "Primero selecciona Marca y Categoría" : ""}
+        title=""
       >
         <Plus className="h-3 w-3 mr-0.5" /> Nuevo
       </DialogTrigger>

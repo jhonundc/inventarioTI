@@ -7,7 +7,8 @@ import { verifyToken } from "@/lib/auth/jwt";
 export async function GET() {
   try {
     const result = await executeQuery(
-      "EXEC pro_ObtenerBienesCatalogo"
+      `EXEC sp_ConsultaBien @Accion = @Accion`,
+      { Accion: "L" }
     );
 
     const bienes = result.recordset.map((row: any) => ({
@@ -16,8 +17,8 @@ export async function GET() {
       CodigoPatrimonial: row.CodigoPatrimonial,
       IdCategoria: row.IdCategoria,
       IdMarca: row.IdMarca,
-      IdModelo: row.IdModelo,
       IdArea: row.IdArea,
+      Modelo: row.Modelo,
       NumeroSerie: row.NumeroSerie,
       Descripcion: row.Descripcion,
       IdCondicion: row.IdCondicion,
@@ -30,15 +31,6 @@ export async function GET() {
       Activo: row.Activo,
       Marca: row.IdMarca
         ? { IdMarca: row.IdMarca, Marca: row.Marca_Marca, Activo: row.Marca_Activo }
-        : null,
-      Modelo: row.IdModelo
-        ? {
-            IdModelo: row.IdModelo,
-            Modelo: row.Modelo_Modelo,
-            IdMarca: row.Modelo_IdMarca,
-            IdCategoria: row.Modelo_IdCategoria,
-            Activo: row.Modelo_Activo,
-          }
         : null,
       Area: row.IdArea
         ? {
@@ -91,41 +83,6 @@ function parseNullableInt(value: any): number | null {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
-async function resolveModeloId(data: any) {
-  const modeloNombre = data.Modelo ? String(data.Modelo).trim() : "";
-  if (!modeloNombre) {
-    return parseNullableInt(data.IdModelo);
-  }
-
-  const idMarca = parseNullableInt(data.IdMarca);
-  const idCategoria = parseNullableInt(data.IdCategoria);
-  const query = idMarca
-    ? "SELECT IdModelo FROM Modelos WHERE Modelo = @Modelo AND IdMarca = @IdMarca"
-    : "SELECT IdModelo FROM Modelos WHERE Modelo = @Modelo";
-
-  console.log('[resolveModeloId] searching modelo with types:', { Modelo: typeof modeloNombre, IdMarca: typeof idMarca });
-  const result = await executeQuery(query, {
-    Modelo: modeloNombre,
-    IdMarca: idMarca,
-  });
-
-  if (result.recordset.length > 0) {
-    return result.recordset[0].IdModelo;
-  }
-
-  console.log('[resolveModeloId] inserting modelo with types:', { Modelo: typeof modeloNombre, IdMarca: typeof idMarca, IdCategoria: typeof idCategoria });
-  const insertResult = await executeQuery(
-    `INSERT INTO Modelos (Modelo, IdMarca, IdCategoria, Activo) OUTPUT INSERTED.IdModelo VALUES (@Modelo, @IdMarca, @IdCategoria, 1)`,
-    {
-      Modelo: modeloNombre,
-      IdMarca: idMarca,
-      IdCategoria: idCategoria,
-    }
-  );
-
-  return insertResult.recordset[0].IdModelo;
-}
-
 export async function POST(request: Request) {
   try {
     const data = await request.json();
@@ -158,37 +115,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Token inválido" }, { status: 401 });
     }
 
-    const idModelo = await resolveModeloId(data);
     const paramsForCreate = {
       CodigoInventario: data.CodigoInventario || null,
       CodigoPatrimonial: data.CodigoPatrimonial || null,
       IdCategoria: parseNullableInt(data.IdCategoria),
       IdMarca: parseNullableInt(data.IdMarca),
-      IdModelo: idModelo,
       IdArea: parseNullableInt(data.IdArea),
+      Modelo: data.Modelo ? String(data.Modelo).trim() : null,
       NumeroSerie: data.NumeroSerie || null,
       Descripcion: data.Descripcion || null,
       IdCondicion: parseNullableInt(data.IdCondicion),
       IdEstadoBien: parseNullableInt(data.IdEstadoBien),
       FechaCompra: fechaCompra,
-      IdUsuarioRegistro: payload.id,
+      IdUsuario: payload.id,
     };
     console.log('[API] POST /api/bienes params:', Object.keys(paramsForCreate).reduce((acc:any,k)=>{acc[k]=typeof (paramsForCreate as any)[k]; return acc},{}));
     const result = await executeQuery(
-      `EXEC pro_CrearBien 
+      `EXEC sp_MantenimientoBien 
+        @Accion = @Accion,
         @CodigoInventario = @CodigoInventario, 
         @CodigoPatrimonial = @CodigoPatrimonial, 
         @IdCategoria = @IdCategoria, 
         @IdMarca = @IdMarca, 
-        @IdModelo = @IdModelo, 
         @IdArea = @IdArea, 
+        @Modelo = @Modelo,
         @NumeroSerie = @NumeroSerie, 
         @Descripcion = @Descripcion, 
         @IdCondicion = @IdCondicion, 
         @IdEstadoBien = @IdEstadoBien, 
         @FechaCompra = @FechaCompra, 
-        @IdUsuarioRegistro = @IdUsuarioRegistro`,
-      paramsForCreate
+        @IdUsuario = @IdUsuario`,
+      { ...paramsForCreate, Accion: "R" }
     );
 
     const createdBien = result.recordset?.[0] ?? null;
@@ -234,23 +191,27 @@ export async function PATCH(request: Request) {
     // Si solo viene Activo, es una actualización de estado (Activar/Desactivar)
     if (Object.keys(fields).length === 1 && "Activo" in fields) {
       await executeQuery(
-        `EXEC pro_DesactivarBien @IdBien = @IdBien`,
+        `EXEC sp_MantenimientoBien 
+          @Accion = @Accion,
+          @IdBien = @IdBien,
+          @IdUsuario = @IdUsuario`,
         {
           IdBien: parseInt(IdBien),
+          IdUsuario: payload.id,
+          Accion: fields.Activo ? "T" : "E",
         }
       );
       return NextResponse.json({ success: true });
     }
 
-    const idModelo = await resolveModeloId(fields);
     const params: Record<string, any> = { 
       IdBien: parseNullableInt(IdBien),
       CodigoInventario: fields.CodigoInventario || null,
       CodigoPatrimonial: fields.CodigoPatrimonial || null,
       IdCategoria: parseNullableInt(fields.IdCategoria),
       IdMarca: parseNullableInt(fields.IdMarca),
-      IdModelo: idModelo,
       IdArea: parseNullableInt(fields.IdArea),
+      Modelo: fields.Modelo ? String(fields.Modelo).trim() : null,
       NumeroSerie: fields.NumeroSerie || null,
       Descripcion: fields.Descripcion || null,
       IdCondicion: parseNullableInt(fields.IdCondicion),
@@ -265,8 +226,8 @@ export async function PATCH(request: Request) {
       "CodigoPatrimonial",
       "IdCategoria",
       "IdMarca",
-      "IdModelo",
       "IdArea",
+      "Modelo",
       "NumeroSerie",
       "Descripcion",
       "IdCondicion",
@@ -279,21 +240,22 @@ export async function PATCH(request: Request) {
     }
 
     await executeQuery(
-      `EXEC pro_ActualizarBien 
+      `EXEC sp_MantenimientoBien 
+        @Accion = @Accion,
         @IdBien = @IdBien, 
         @CodigoInventario = @CodigoInventario, 
         @CodigoPatrimonial = @CodigoPatrimonial, 
         @IdCategoria = @IdCategoria, 
         @IdMarca = @IdMarca, 
-        @IdModelo = @IdModelo, 
         @IdArea = @IdArea, 
+        @Modelo = @Modelo,
         @NumeroSerie = @NumeroSerie, 
         @Descripcion = @Descripcion, 
         @IdCondicion = @IdCondicion, 
         @IdEstadoBien = @IdEstadoBien, 
         @FechaCompra = @FechaCompra, 
-        @IdUsuarioModificacion = @IdUsuarioModificacion`,
-      params
+        @IdUsuario = @IdUsuarioModificacion`,
+      { ...params, Accion: "A" }
     );
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -306,9 +268,20 @@ export async function PATCH(request: Request) {
   }
 }
 
-// Eliminar un bien
+// Dar de baja un bien (eliminación lógica)
 export async function DELETE(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const payload = await verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     
@@ -319,41 +292,21 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Verificar si está asociado a alguna ficha de soporte
-    const checkFichas = await executeQuery(
-      `EXEC pro_VerificarBienEnSoporte @IdBien = @IdBien`,
-      { IdBien: parseInt(id) }
-    );
-
-    if (checkFichas.recordset[0].count > 0) {
-      return NextResponse.json(
-        { error: "No se puede eliminar el bien porque tiene fichas de soporte técnico asociadas" },
-        { status: 400 }
-      );
-    }
-
-    // Verificar si está asociado a componentes
-    const checkComponentes = await executeQuery(
-      `EXEC pro_VerificarComponentesDeBien @IdBien = @IdBien`,
-      { IdBien: parseInt(id) }
-    );
-
-    if (checkComponentes.recordset[0].count > 0) {
-      return NextResponse.json(
-        { error: "No se puede eliminar el bien porque tiene componentes asociados" },
-        { status: 400 }
-      );
-    }
-
-    await executeQuery(`EXEC pro_DesactivarBien @IdBien = @IdBien`, {
+    await executeQuery(`EXEC sp_MantenimientoBien 
+        @Accion = @Accion,
+        @IdBien = @IdBien,
+        @IdUsuario = @IdUsuario`, {
       IdBien: parseInt(id),
+      IdUsuario: payload.id,
+      Accion: "E",
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error en DELETE /api/bienes:", error);
+    const msg = (error as any)?.message || String(error);
     return NextResponse.json(
-      { error: "Error al eliminar el bien" },
+      { error: `Error al dar de baja el bien: ${msg}` },
       { status: 500 }
     );
   }

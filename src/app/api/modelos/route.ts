@@ -5,24 +5,15 @@ import { executeQuery } from "@/lib/db";
 export async function GET() {
   try {
     const result = await executeQuery(
-      `SELECT 
-          m.*,
-          ma.Marca AS Marca_Marca, ma.Activo AS Marca_Activo
-       FROM Modelos m
-       LEFT JOIN Marcas ma ON m.IdMarca = ma.IdMarca
-       WHERE m.Activo = 1
-       ORDER BY m.Modelo ASC`
+      `SELECT IdModelo, Modelo, Activo
+       FROM Modelos
+       ORDER BY Modelo ASC`
     );
-    
+
     const modelos = result.recordset.map((row: any) => ({
       IdModelo: row.IdModelo,
-      IdMarca: row.IdMarca,
-      IdCategoria: row.IdCategoria,
       Modelo: row.Modelo,
       Activo: row.Activo,
-      Marca: row.IdMarca 
-        ? { IdMarca: row.IdMarca, Marca: row.Marca_Marca, Activo: row.Marca_Activo }
-        : null
     }));
 
     return NextResponse.json(modelos);
@@ -39,30 +30,35 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    
-    if (!data.Modelo || !data.IdMarca) {
+
+    if (!data.Modelo) {
       return NextResponse.json(
-        { error: "El nombre del modelo y la marca son requeridos" },
+        { error: "El nombre del modelo es requerido" },
         { status: 400 }
       );
     }
 
-    const result = await executeQuery(
-      `INSERT INTO Modelos (Modelo, IdMarca, IdCategoria, Activo) 
-       OUTPUT INSERTED.* 
-       VALUES (@Modelo, @IdMarca, @IdCategoria, 1)`,
-      {
-        Modelo: data.Modelo,
-        IdMarca: parseInt(data.IdMarca),
-        IdCategoria: data.IdCategoria ? parseInt(data.IdCategoria) : null,
-      }
+    await executeQuery(
+      `EXEC sp_MantenimientoModelo
+         @Accion = @Accion,
+         @Modelo = @Modelo`,
+      { Accion: "R", Modelo: String(data.Modelo).trim() }
     );
-    
-    return NextResponse.json(result.recordset[0], { status: 201 });
+
+    const created = await executeQuery(
+      `SELECT TOP 1 IdModelo, Modelo, Activo
+       FROM Modelos
+       WHERE Modelo = @Modelo
+       ORDER BY IdModelo DESC`,
+      { Modelo: String(data.Modelo).trim() }
+    );
+
+    return NextResponse.json(created.recordset?.[0] ?? { success: true }, { status: 201 });
   } catch (error) {
     console.error("Error en POST /api/modelos:", error);
+    const msg = (error as any)?.message || String(error);
     return NextResponse.json(
-      { error: "Error al crear el modelo" },
+      { error: `Error al crear el modelo: ${msg}` },
       { status: 500 }
     );
   }
@@ -72,50 +68,65 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const data = await request.json();
-    
-    if (!data.IdModelo || !data.Modelo) {
+
+    if (!data.IdModelo) {
       return NextResponse.json(
-        { error: "El ID y el nombre del modelo son requeridos" },
+        { error: "El ID del modelo es requerido" },
         { status: 400 }
       );
     }
 
-    const updates: string[] = ["Modelo = @Modelo"];
-    const params: Record<string, any> = {
-      IdModelo: parseInt(data.IdModelo),
-      Modelo: data.Modelo,
-    };
+    const idModelo = parseInt(String(data.IdModelo), 10);
+    const isToggle = data.Activo !== undefined && data.Modelo === undefined;
 
-    if (data.IdMarca !== undefined) {
-      updates.push("IdMarca = @IdMarca");
-      params.IdMarca = parseInt(data.IdMarca);
-    }
+    if (isToggle) {
+      await executeQuery(
+        `EXEC sp_MantenimientoModelo
+           @Accion = @Accion,
+           @IdModelo = @IdModelo`,
+        {
+          Accion: data.Activo ? "T" : "E",
+          IdModelo: idModelo,
+        }
+      );
+    } else {
+      if (!data.Modelo || !String(data.Modelo).trim()) {
+        return NextResponse.json(
+          { error: "El nombre del modelo es requerido" },
+          { status: 400 }
+        );
+      }
 
-    if (data.IdCategoria !== undefined) {
-      updates.push("IdCategoria = @IdCategoria");
-      params.IdCategoria = data.IdCategoria ? parseInt(data.IdCategoria) : null;
+      await executeQuery(
+        `EXEC sp_MantenimientoModelo
+           @Accion = @Accion,
+           @IdModelo = @IdModelo,
+           @Modelo = @Modelo`,
+        {
+          Accion: "A",
+          IdModelo: idModelo,
+          Modelo: String(data.Modelo).trim(),
+        }
+      );
     }
 
     const result = await executeQuery(
-      `UPDATE Modelos 
-       SET ${updates.join(", ")} 
-       OUTPUT INSERTED.* 
+      `SELECT IdModelo, Modelo, Activo
+       FROM Modelos
        WHERE IdModelo = @IdModelo`,
-      params
+      { IdModelo: idModelo }
     );
-    
-    if (result.recordset.length === 0) {
-      return NextResponse.json(
-        { error: "Modelo no encontrado" },
-        { status: 404 }
-      );
+
+    if (!result.recordset?.length) {
+      return NextResponse.json({ error: "Modelo no encontrado" }, { status: 404 });
     }
 
     return NextResponse.json(result.recordset[0]);
   } catch (error) {
     console.error("Error en PATCH /api/modelos:", error);
+    const msg = (error as any)?.message || String(error);
     return NextResponse.json(
-      { error: "Error al actualizar el modelo" },
+      { error: `Error al actualizar el modelo: ${msg}` },
       { status: 500 }
     );
   }
@@ -134,28 +145,32 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const result = await executeQuery(
-      `UPDATE Modelos 
-       SET Activo = 0 
-       OUTPUT INSERTED.* 
-       WHERE IdModelo = @IdModelo`,
-      {
-        IdModelo: parseInt(id),
-      }
+    const idModelo = parseInt(id, 10);
+
+    await executeQuery(
+      `EXEC sp_MantenimientoModelo
+         @Accion = @Accion,
+         @IdModelo = @IdModelo`,
+      { Accion: "E", IdModelo: idModelo }
     );
-    
-    if (result.recordset.length === 0) {
-      return NextResponse.json(
-        { error: "Modelo no encontrado" },
-        { status: 404 }
-      );
+
+    const result = await executeQuery(
+      `SELECT IdModelo, Modelo, Activo
+       FROM Modelos
+       WHERE IdModelo = @IdModelo`,
+      { IdModelo: idModelo }
+    );
+
+    if (!result.recordset?.length) {
+      return NextResponse.json({ error: "Modelo no encontrado" }, { status: 404 });
     }
 
     return NextResponse.json(result.recordset[0]);
   } catch (error) {
     console.error("Error en DELETE /api/modelos:", error);
+    const msg = (error as any)?.message || String(error);
     return NextResponse.json(
-      { error: "Error al desactivar el modelo" },
+      { error: `Error al desactivar el modelo: ${msg}` },
       { status: 500 }
     );
   }

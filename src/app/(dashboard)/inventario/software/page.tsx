@@ -8,16 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search, Edit, Trash2, Eye, Power } from "lucide-react";
 import SoftwareFormModal from "@/components/inventory/SoftwareFormModal";
 
-const fetchSoftware = async () => {
-  const res = await fetch("/api/software");
+const fetchSoftware = async ({ queryKey }: any) => {
+  const [_key, search] = queryKey;
+  const term = String(search || "").trim();
+  const url = term ? `/api/software?nombre=${encodeURIComponent(term)}` : "/api/software";
+  const res = await fetch(url);
   if (!res.ok) throw new Error("Error al cargar el inventario de software");
   return res.json();
 };
 
 export default function SoftwarePage() {
   const queryClient = useQueryClient();
+  const [softwareSearchTerm, setSoftwareSearchTerm] = useState("");
   const { data: software, isLoading, error } = useQuery({
-    queryKey: ["software"],
+    queryKey: ["software", softwareSearchTerm],
     queryFn: fetchSoftware,
   });
   const { data: sessionData } = useQuery({
@@ -30,7 +34,6 @@ export default function SoftwarePage() {
   });
   const isSupport = String(sessionData?.user?.role || "").toLowerCase().includes("soporte");
 
-  const [searchTerm, setSearchTerm] = useState("");
   const [visibleCount, setVisibleCount] = useState(12);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSoftware, setEditingSoftware] = useState<any>(null);
@@ -103,20 +106,7 @@ export default function SoftwarePage() {
     }
   };
 
-  const filteredSoftware = useMemo(() => {
-    if (!software) return [];
-    const term = searchTerm.toLowerCase();
-    return software.filter((item: any) => {
-      return (
-        item.NombreSoftware?.toLowerCase().includes(term) ||
-        item.TipoSoftware?.toLowerCase().includes(term) ||
-        item.ProveedorEntidad?.toLowerCase().includes(term) ||
-        item.TipoLicencia?.toLowerCase().includes(term) ||
-        item.EstadoLicencia?.toLowerCase().includes(term) ||
-        item.UsoFinalidad?.toLowerCase().includes(term)
-      );
-    });
-  }, [software, searchTerm]);
+  const filteredSoftware = useMemo(() => software || [], [software]);
 
   const displayedSoftware = useMemo(
     () => filteredSoftware.slice(0, visibleCount),
@@ -291,9 +281,9 @@ export default function SoftwarePage() {
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
             <Input
-              value={searchTerm}
+              value={softwareSearchTerm}
               onChange={(e) => {
-                setSearchTerm(e.target.value);
+                setSoftwareSearchTerm(e.target.value);
                 setVisibleCount(12);
               }}
               placeholder="Nombre, proveedor, tipo de licencia..."

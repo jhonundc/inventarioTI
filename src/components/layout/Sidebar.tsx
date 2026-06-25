@@ -58,7 +58,6 @@ const adminMenuItems = [
       { label: "Categorías", href: "/configuracion/categorias" },
       { label: "Marcas", href: "/configuracion/marcas" },
       { label: "Proveedores", href: "/configuracion/proveedores" },
-      { label: "Modelos", href: "/configuracion/modelos" },
       { label: "Condiciones", href: "/configuracion/condiciones" },
       { label: "Estados", href: "/configuracion/estados" },
       { label: "Tipos de Software", href: "/configuracion/tipos-software" },

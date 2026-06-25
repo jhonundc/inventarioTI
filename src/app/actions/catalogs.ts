@@ -8,17 +8,9 @@ export async function getMarcas() {
 }
 
 export async function getModelos(idMarca?: number, idCategoria?: number) {
-  let sql = "SELECT * FROM Modelos WHERE Activo = 1";
-  const params: Record<string, any> = {};
-  if (idMarca) {
-    sql += " AND IdMarca = @IdMarca";
-    params.IdMarca = idMarca;
-  }
-  if (idCategoria) {
-    sql += " AND IdCategoria = @IdCategoria";
-    params.IdCategoria = idCategoria;
-  }
-  const result = await executeQuery(sql, params);
+  const result = await executeQuery(
+    "SELECT IdModelo, Modelo, Activo FROM Modelos WHERE Activo = 1 ORDER BY Modelo ASC"
+  );
   return result.recordset;
 }
 
@@ -199,8 +191,8 @@ export async function createBien(data: {
     modeloId = getModeloResult.recordset[0].IdModelo;
   } else {
     const createModeloResult = await executeQuery(
-      "INSERT INTO Modelos (Modelo, IdMarca, Activo) OUTPUT INSERTED.IdModelo VALUES (@Modelo, @IdMarca, 1)",
-      { Modelo: data.modelo, IdMarca: marcaId }
+      "INSERT INTO Modelos (Modelo, Activo) OUTPUT INSERTED.IdModelo VALUES (@Modelo, 1)",
+      { Modelo: data.modelo }
     );
     modeloId = createModeloResult.recordset[0].IdModelo;
   }

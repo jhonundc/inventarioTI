@@ -3,7 +3,7 @@ import { executeQuery } from "@/lib/db";
 
 export async function GET() {
   try {
-    const result = await executeQuery("EXEC pro_ObtenerBienesCatalogo");
+    const result = await executeQuery("EXEC sp_ConsultaBien @Accion = @Accion", { Accion: "L" });
 
     const bienes = result.recordset.map((row: any) => ({
       CodigoInventario: row.CodigoInventario ?? "",
@@ -11,7 +11,7 @@ export async function GET() {
       Descripcion: row.Descripcion ?? "",
       NumeroSerie: row.NumeroSerie ?? "",
       Marca: row.Marca_Marca ?? "",
-      Modelo: row.Modelo_Modelo ?? "",
+      Modelo: row.Modelo ?? row.Modelo_Modelo ?? "",
       Area: row.Area_NombreArea ?? "",
       Categoria: row.Categoria_CategoriaBien ?? "",
       Condicion: row.Condicion_Condicion ?? "",

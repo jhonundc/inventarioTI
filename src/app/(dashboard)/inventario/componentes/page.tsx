@@ -49,9 +49,7 @@ export default function ComponentesPage() {
 
   const toggleActivoMutation = useMutation({
     mutationFn: async (comp: any) => {
-      const payload = comp.IdBienComponente
-        ? { IdBienComponente: comp.IdBienComponente, Activo: !comp.Activo }
-        : { IdBien: comp.IdBien, IdComponente: comp.IdComponente, Activo: !comp.Activo };
+      const payload = { IdBienComponente: comp.IdBienComponente, Activo: !comp.Activo };
 
       const res = await fetch("/api/componentes", {
         method: "PATCH",
@@ -74,7 +72,7 @@ export default function ComponentesPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (comp: any) => {
-      const res = await fetch(`/api/componentes?idBien=${comp.IdBien}&idComponente=${comp.IdComponente}`, {
+      const res = await fetch(`/api/componentes?idBienComponente=${comp.IdBienComponente}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -98,7 +96,7 @@ export default function ComponentesPage() {
   };
 
   const handleDelete = (comp: any) => {
-    if (confirm("¿Está seguro de eliminar este componente del bien?")) {
+    if (confirm("¿Está seguro de dar de baja este componente del bien?")) {
       deleteMutation.mutate(comp);
     }
   };
@@ -233,7 +231,7 @@ export default function ComponentesPage() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    title="Eliminar"
+                    title="Dar de baja"
                     onClick={() => handleDelete(comp)}
                   >
                     <Trash2 className="h-4 w-4" />

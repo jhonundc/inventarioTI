@@ -9,7 +9,13 @@ function parseNullableInt(value: any): number | null {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
-function parseNullableBoolean(value: any): boolean | null {
+function toNullableString(value: any): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text.length ? text : null;
+}
+
+function parseBooleanLike(value: any): boolean | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "boolean") return value;
   const text = String(value).toLowerCase();
@@ -40,23 +46,54 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const idSoftware = parseNullableInt(url.searchParams.get("id"));
-    const activo = parseNullableBoolean(url.searchParams.get("activo"));
+    const nombre = toNullableString(url.searchParams.get("nombre"));
+    const tipo = toNullableString(url.searchParams.get("tipo"));
+    const version = toNullableString(url.searchParams.get("version"));
+    const proveedor = toNullableString(url.searchParams.get("proveedor"));
+    const tipoLicencia = toNullableString(url.searchParams.get("tipoLicencia"));
+    const estado = toNullableString(url.searchParams.get("estado"));
+    const inactivos = parseBooleanLike(url.searchParams.get("inactivos"));
+    const all = parseBooleanLike(url.searchParams.get("all"));
+    const porVencer = parseBooleanLike(url.searchParams.get("porVencer"));
 
-    if (idSoftware) {
-      const result = await executeQuery(
-        `EXEC pro_ObtenerBienSoftwarePorId @IdSoftware = @IdSoftware`,
-        { IdSoftware: idSoftware }
-      );
-      const record = result.recordset?.[0] ?? null;
-      return NextResponse.json(record ? formatSoftwareRow(record) : null);
-    }
+    let accion = "L";
+    if (idSoftware) accion = "I";
+    else if (nombre) accion = "N";
+    else if (tipo) accion = "T";
+    else if (version) accion = "V";
+    else if (proveedor) accion = "P";
+    else if (tipoLicencia) accion = "C";
+    else if (estado) accion = "E";
+    else if (porVencer) accion = "F";
+    else if (all) accion = "A";
+    else if (inactivos) accion = "D";
 
     const result = await executeQuery(
-      `EXEC pro_ObtenerBienesSoftware @Activo = @Activo`,
-      { Activo: activo }
+      `EXEC sp_ConsultaSoftware
+        @Accion = @Accion,
+        @IdSoftware = @IdSoftware,
+        @NombreSoftware = @NombreSoftware,
+        @TipoSoftware = @TipoSoftware,
+        @VersionSoftware = @VersionSoftware,
+        @ProveedorEntidad = @ProveedorEntidad,
+        @TipoLicencia = @TipoLicencia,
+        @EstadoLicencia = @EstadoLicencia`,
+      {
+        Accion: accion,
+        IdSoftware: idSoftware,
+        NombreSoftware: nombre,
+        TipoSoftware: tipo,
+        VersionSoftware: version,
+        ProveedorEntidad: proveedor,
+        TipoLicencia: tipoLicencia,
+        EstadoLicencia: estado,
+      }
     );
 
     const softs = (result.recordset || []).map(formatSoftwareRow);
+    if (idSoftware) {
+      return NextResponse.json(softs[0] ?? null);
+    }
     return NextResponse.json(softs);
   } catch (error) {
     console.error("Error en GET /api/software:", error);
@@ -101,7 +138,8 @@ export async function POST(request: Request) {
     }
 
     const result = await executeQuery(
-      `EXEC pro_InsertarBienSoftware
+      `EXEC sp_MantenimientoSoftware
+        @Accion = @Accion,
         @NombreSoftware = @NombreSoftware,
         @TipoSoftware = @TipoSoftware,
         @VersionSoftware = @VersionSoftware,
@@ -113,6 +151,7 @@ export async function POST(request: Request) {
         @EquiposUsuariosAsignados = @EquiposUsuariosAsignados,
         @UsoFinalidad = @UsoFinalidad`,
       {
+        Accion: "R",
         NombreSoftware: String(data.NombreSoftware),
         TipoSoftware: String(data.TipoSoftware),
         VersionSoftware: String(data.VersionSoftware),
@@ -154,10 +193,9 @@ export async function PATCH(request: Request) {
     }
 
     if (Object.keys(data).length === 2 && typeof data.Activo !== "undefined") {
-      const procedure = data.Activo ? "pro_ActivarBienSoftware" : "pro_DesactivarBienSoftware";
       await executeQuery(
-        `EXEC ${procedure} @IdSoftware = @IdSoftware`,
-        { IdSoftware: idSoftware }
+        `EXEC sp_MantenimientoSoftware @Accion = @Accion, @IdSoftware = @IdSoftware`,
+        { Accion: data.Activo ? "T" : "E", IdSoftware: idSoftware }
       );
       return NextResponse.json({ success: true });
     }
@@ -171,7 +209,8 @@ export async function PATCH(request: Request) {
     }
 
     await executeQuery(
-      `EXEC pro_ActualizarBienSoftware
+      `EXEC sp_MantenimientoSoftware
+        @Accion = @Accion,
         @IdSoftware = @IdSoftware,
         @NombreSoftware = @NombreSoftware,
         @TipoSoftware = @TipoSoftware,
@@ -184,6 +223,7 @@ export async function PATCH(request: Request) {
         @EquiposUsuariosAsignados = @EquiposUsuariosAsignados,
         @UsoFinalidad = @UsoFinalidad`,
       {
+        Accion: "A",
         IdSoftware: idSoftware,
         NombreSoftware: String(data.NombreSoftware),
         TipoSoftware: String(data.TipoSoftware),
@@ -224,9 +264,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Token inválido" }, { status: 401 });
     }
 
-    await executeQuery(`EXEC pro_DesactivarBienSoftware @IdSoftware = @IdSoftware`, {
-      IdSoftware: idSoftware,
-    });
+    await executeQuery(
+      `EXEC sp_MantenimientoSoftware @Accion = @Accion, @IdSoftware = @IdSoftware`,
+      { Accion: "E", IdSoftware: idSoftware }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
