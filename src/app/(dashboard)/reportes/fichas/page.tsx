@@ -71,6 +71,12 @@ export default function ReportesFichasPage() {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
+
+  const StatusBadge = ({ status }: { status?: string }) => {
+    const s = (status || "").toLowerCase();
+    const classes = s.includes('pend') ? 'bg-amber-100 text-amber-800' : s.includes('progres') ? 'bg-indigo-100 text-indigo-800' : (s.includes('atend') || s === 'atendida') ? 'bg-green-100 text-green-800' : s.includes('deriv') ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-800';
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${classes}`}>{status || '-'}</span>;
+  }
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -250,11 +256,11 @@ export default function ReportesFichasPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Registro de fichas</h1>
-          <p className="text-slate-500 text-sm">Listado, filtros, export y acciones sobre fichas de soporte.</p>
+          <h1 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-cyan-500">Registro de fichas</h1>
+          <p className="text-sm text-slate-500 mt-1">Listado, filtros, export y acciones sobre fichas de soporte.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadRecords}>
+        <div className="flex gap-2 items-center">
+          <Button onClick={loadRecords} className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm">
             Recargar
           </Button>
         </div>
@@ -321,7 +327,7 @@ export default function ReportesFichasPage() {
             <CardDescription>Lista de fichas filtrable y exportable</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={handleExport} disabled={exporting} className="gap-2 bg-slate-800 hover:bg-slate-900">
+            <Button onClick={handleExport} disabled={exporting} className="gap-2 bg-gradient-to-r from-teal-600 to-cyan-500 hover:from-teal-700 hover:to-cyan-600 text-white shadow">
               <Download className="w-4 h-4" />
               {exporting ? "Generando..." : "Descargar"}
             </Button>
@@ -331,18 +337,19 @@ export default function ReportesFichasPage() {
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-2 items-center mb-4">
             <div className="relative w-full max-w-md">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input className="pl-10" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <Input className="pl-10 pr-10 py-2 rounded-lg shadow-sm border" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-2 text-slate-500">✕</button>}
             </div>
             <div className="flex gap-2">
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="py-2 rounded-md" />
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="py-2 rounded-md" />
             </div>
           </div>
 
           <div className="overflow-auto rounded-xl border">
             <table className="w-full text-sm">
-              <thead className="bg-muted text-xs">
+              <thead className="bg-gradient-to-r from-slate-900 to-slate-700 text-white text-xs">
                 <tr>
                   <th className="p-3 text-left">Nº Ficha</th>
                   <th className="p-3 text-left">Tipo</th>
@@ -361,14 +368,14 @@ export default function ReportesFichasPage() {
                   <tr><td colSpan={8} className="p-6 text-center">No hay registros</td></tr>
                 ) : (
                   filteredRecords.map((r) => (
-                    <tr key={`${r.tipo}-${r.id}`} className="border-t hover:bg-slate-50 transition-colors text-xs">
+                    <tr key={`${r.tipo}-${r.id}`} className="border-t transition-colors text-xs hover:bg-slate-50 odd:bg-white even:bg-slate-50">
                       <td className="p-3 font-medium text-slate-700">{r.numero || '-'}</td>
                       <td className="p-3">{r.tipo || '-'}</td>
                       <td className="p-3">{r.responsable || '-'}</td>
                       <td className="p-3">{r.dependencia || '-'}</td>
                       <td className="p-3">{r.bien?.Descripcion || r.bien?.CodigoInventario || '-'}</td>
                       <td className="p-3">{r.fechaRegistro ? new Date(r.fechaRegistro).toLocaleString() : '-'}</td>
-                      <td className="p-3">{r.estado || '-'}</td>
+                      <td className="p-3"><StatusBadge status={r.estado} /></td>
                       <td className="p-3 text-center">
                         <div className="flex justify-center gap-1">
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-teal-600" onClick={() => { setViewingRecord(r); setViewOpen(true); }} title="Ver">

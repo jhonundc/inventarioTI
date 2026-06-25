@@ -64,9 +64,17 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-[#0B0F19] overflow-hidden">
-      {/* Background blobs for glassmorphism effect */}
-      <div className="absolute top-1/4 -left-1/4 w-1/2 h-1/2 bg-blue-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-blob"></div>
-      <div className="absolute -bottom-1/4 -right-1/4 w-1/2 h-1/2 bg-cyan-600 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-blob animation-delay-2000"></div>
+      {/* Background image with overlay and subtle animation */}
+      <div className="login-bg-container -z-10" aria-hidden>
+        <div
+          className="login-bg-image"
+          style={{
+            backgroundImage:
+              "url('https://live.staticflickr.com/65535/52938511171_480b79e76d_h.jpg')",
+          }}
+        />
+        <div className="login-bg-overlay" />
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

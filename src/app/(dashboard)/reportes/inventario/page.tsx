@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Download, Sparkles, Eye, Edit, Trash2 } from "lucide-react";
+import { Download, Sparkles, Eye, Edit, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,17 @@ type InventarioStats = {
 };
 
 type FilterType = "bienes" | "componentes" | "software";
+
+const StatusBadge = ({ active }: { active: boolean | number }) => {
+  const isActive = active === 1 || active === true;
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+      isActive ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+    }`}>
+      {isActive ? "Activo" : "Inactivo"}
+    </span>
+  );
+};
 
 export default function ReportesInventarioPage() {
   const [exporting, setExporting] = useState(false);
@@ -234,41 +245,39 @@ export default function ReportesInventarioPage() {
 
     if (filterType === "bienes") {
       return (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto rounded-xl border">
           <table className="w-full text-sm">
-            <thead className="bg-slate-100 border-b">
+            <thead className="bg-gradient-to-r from-slate-900 to-slate-700 text-white text-xs">
               <tr>
-                <th className="px-4 py-2 text-left font-semibold">Código Inventario</th>
-                <th className="px-4 py-2 text-left font-semibold">Descripción</th>
-                <th className="px-4 py-2 text-left font-semibold">Marca</th>
-                <th className="px-4 py-2 text-left font-semibold">Modelo</th>
-                <th className="px-4 py-2 text-left font-semibold">Fecha Registro</th>
-                <th className="px-4 py-2 text-left font-semibold">Estado</th>
+                <th className="px-4 py-3 text-left font-semibold">Código Inventario</th>
+                <th className="px-4 py-3 text-left font-semibold">Descripción</th>
+                <th className="px-4 py-3 text-left font-semibold">Marca</th>
+                <th className="px-4 py-3 text-left font-semibold">Modelo</th>
+                <th className="px-4 py-3 text-left font-semibold">Fecha Registro</th>
+                <th className="px-4 py-3 text-left font-semibold">Estado</th>
               </tr>
             </thead>
             <tbody>
               {filteredRecords.map((bien, idx) => (
-                <tr key={idx} className="border-b hover:bg-slate-50">
-                  <td className="px-4 py-2">{bien.CodigoInventario || "-"}</td>
-                  <td className="px-4 py-2">{bien.Descripcion || "-"}</td>
-                  <td className="px-4 py-2">{bien.Marca?.Marca || "-"}</td>
-                  <td className="px-4 py-2">{bien.Modelo?.Modelo || "-"}</td>
-                  <td className="px-4 py-2 text-slate-600">
+                <tr key={idx} className="border-t transition-colors text-xs hover:bg-slate-50 odd:bg-white even:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-700">{bien.CodigoInventario || "-"}</td>
+                  <td className="px-4 py-3">{bien.Descripcion || "-"}</td>
+                  <td className="px-4 py-3">{bien.Marca?.Marca || "-"}</td>
+                  <td className="px-4 py-3">{bien.Modelo?.Modelo || "-"}</td>
+                  <td className="px-4 py-3 text-slate-600">
                     {bien.FechaRegistro ? new Date(bien.FechaRegistro).toLocaleDateString("es-ES") : "-"}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${bien.Activo ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                        {bien.Activo ? "Activo" : "Inactivo"}
-                      </span>
-                      <div className="ml-2 flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setModalRecord(bien); setModalMode("view"); setModalOpen(true); }}>
+                      <StatusBadge active={bien.Activo} />
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600" onClick={() => { setModalRecord(bien); setModalMode("view"); setModalOpen(true); }}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setModalRecord(bien); setModalMode("edit"); setModalOpen(true); }}>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-emerald-600" onClick={() => { setModalRecord(bien); setModalMode("edit"); setModalOpen(true); }}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={async () => {
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-600" onClick={async () => {
                           const ok = confirm("¿Eliminar este bien? Esta acción lo desactivará.");
                           if (!ok) return;
                           try {
@@ -281,7 +290,7 @@ export default function ReportesInventarioPage() {
                             alert(e.message || "Error al eliminar");
                           }
                         }}>
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -296,46 +305,42 @@ export default function ReportesInventarioPage() {
 
     if (filterType === "componentes") {
       return (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto rounded-xl border">
           <table className="w-full text-sm">
-            <thead className="bg-slate-100 border-b">
+            <thead className="bg-gradient-to-r from-slate-900 to-slate-700 text-white text-xs">
               <tr>
-                <th className="px-4 py-2 text-left font-semibold">Bien</th>
-                <th className="px-4 py-2 text-left font-semibold">Componente</th>
-                <th className="px-4 py-2 text-left font-semibold">Marca</th>
-                <th className="px-4 py-2 text-left font-semibold">Serie</th>
-                <th className="px-4 py-2 text-left font-semibold">Fecha Registro</th>
-                <th className="px-4 py-2 text-left font-semibold">Estado</th>
+                <th className="px-4 py-3 text-left font-semibold">Bien</th>
+                <th className="px-4 py-3 text-left font-semibold">Componente</th>
+                <th className="px-4 py-3 text-left font-semibold">Marca</th>
+                <th className="px-4 py-3 text-left font-semibold">Serie</th>
+                <th className="px-4 py-3 text-left font-semibold">Fecha Registro</th>
+                <th className="px-4 py-3 text-left font-semibold">Estado</th>
               </tr>
             </thead>
             <tbody>
               {filteredRecords.map((comp, idx) => (
-                <tr key={idx} className="border-b hover:bg-slate-50">
-                  <td className="px-4 py-2">{comp.BienDescripcion || "-"}</td>
-                  <td className="px-4 py-2">{comp.NombreComponente || "-"}</td>
-                  <td className="px-4 py-2">{comp.Marca || "-"}</td>
-                  <td className="px-4 py-2">{comp.Serie || "-"}</td>
-                  <td className="px-4 py-2 text-slate-600">
+                <tr key={idx} className="border-t transition-colors text-xs hover:bg-slate-50 odd:bg-white even:bg-slate-50">
+                  <td className="px-4 py-3">{comp.BienDescripcion || "-"}</td>
+                  <td className="px-4 py-3">{comp.NombreComponente || "-"}</td>
+                  <td className="px-4 py-3">{comp.Marca || "-"}</td>
+                  <td className="px-4 py-3">{comp.Serie || "-"}</td>
+                  <td className="px-4 py-3 text-slate-600">
                     {comp.FechaRegistro ? new Date(comp.FechaRegistro).toLocaleDateString("es-ES") : "-"}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${comp.Activo ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                        {comp.Activo ? "Activo" : "Inactivo"}
-                      </span>
-                      <div className="ml-2 flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setModalRecord(comp); setModalMode("view"); setModalOpen(true); }}>
+                      <StatusBadge active={comp.Activo} />
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600" onClick={() => { setModalRecord(comp); setModalMode("view"); setModalOpen(true); }}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setModalRecord(comp); setModalMode("edit"); setModalOpen(true); }}>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-emerald-600" onClick={() => { setModalRecord(comp); setModalMode("edit"); setModalOpen(true); }}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={async () => {
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-600" onClick={async () => {
                           const ok = confirm("¿Eliminar este componente del bien?");
                           if (!ok) return;
                           try {
-                            const idBien = comp.IdBien || comp.IdBienComponente || comp.IdBien || comp.IdBien;
-                            const idComponente = comp.IdComponente || comp.IdComponente;
                             const res = await fetch(`/api/componentes?idBien=${encodeURIComponent(String(comp.IdBien))}&idComponente=${encodeURIComponent(String(comp.IdComponente))}`, { method: "DELETE" });
                             const data = await res.json();
                             if (!res.ok) throw new Error(data.error || "Error al eliminar");
@@ -345,7 +350,7 @@ export default function ReportesInventarioPage() {
                             alert(e.message || "Error al eliminar");
                           }
                         }}>
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -360,41 +365,39 @@ export default function ReportesInventarioPage() {
 
     if (filterType === "software") {
       return (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto rounded-xl border">
           <table className="w-full text-sm">
-            <thead className="bg-slate-100 border-b">
+            <thead className="bg-gradient-to-r from-slate-900 to-slate-700 text-white text-xs">
               <tr>
-                <th className="px-4 py-2 text-left font-semibold">Nombre</th>
-                <th className="px-4 py-2 text-left font-semibold">Tipo</th>
-                <th className="px-4 py-2 text-left font-semibold">Versión</th>
-                <th className="px-4 py-2 text-left font-semibold">Licencias</th>
-                <th className="px-4 py-2 text-left font-semibold">Fecha Registro</th>
-                <th className="px-4 py-2 text-left font-semibold">Estado</th>
+                <th className="px-4 py-3 text-left font-semibold">Nombre</th>
+                <th className="px-4 py-3 text-left font-semibold">Tipo</th>
+                <th className="px-4 py-3 text-left font-semibold">Versión</th>
+                <th className="px-4 py-3 text-left font-semibold">Licencias</th>
+                <th className="px-4 py-3 text-left font-semibold">Fecha Registro</th>
+                <th className="px-4 py-3 text-left font-semibold">Estado</th>
               </tr>
             </thead>
             <tbody>
               {filteredRecords.map((soft, idx) => (
-                <tr key={idx} className="border-b hover:bg-slate-50">
-                  <td className="px-4 py-2">{soft.NombreSoftware || "-"}</td>
-                  <td className="px-4 py-2">{soft.TipoSoftware || "-"}</td>
-                  <td className="px-4 py-2">{soft.VersionSoftware || "-"}</td>
-                  <td className="px-4 py-2">{soft.CantidadLicencias || "-"}</td>
-                  <td className="px-4 py-2 text-slate-600">
+                <tr key={idx} className="border-t transition-colors text-xs hover:bg-slate-50 odd:bg-white even:bg-slate-50">
+                  <td className="px-4 py-3">{soft.NombreSoftware || "-"}</td>
+                  <td className="px-4 py-3">{soft.TipoSoftware || "-"}</td>
+                  <td className="px-4 py-3">{soft.VersionSoftware || "-"}</td>
+                  <td className="px-4 py-3">{soft.CantidadLicencias || "-"}</td>
+                  <td className="px-4 py-3 text-slate-600">
                     {soft.FechaRegistro ? new Date(soft.FechaRegistro).toLocaleDateString("es-ES") : "-"}
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${soft.Activo ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                        {soft.Activo ? "Activo" : "Inactivo"}
-                      </span>
-                      <div className="ml-2 flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setModalRecord(soft); setModalMode("view"); setModalOpen(true); }}>
+                      <StatusBadge active={soft.Activo} />
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-600" onClick={() => { setModalRecord(soft); setModalMode("view"); setModalOpen(true); }}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => { setModalRecord(soft); setModalMode("edit"); setModalOpen(true); }}>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-emerald-600" onClick={() => { setModalRecord(soft); setModalMode("edit"); setModalOpen(true); }}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={async () => {
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-red-600" onClick={async () => {
                           const ok = confirm("¿Eliminar este software? Será desactivado.");
                           if (!ok) return;
                           try {
@@ -407,7 +410,7 @@ export default function ReportesInventarioPage() {
                             alert(e.message || "Error al eliminar");
                           }
                         }}>
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
@@ -426,8 +429,8 @@ export default function ReportesInventarioPage() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Registro de inventario</h1>
-            <p className="text-slate-500 text-sm">
+            <h1 className="text-2xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500">Registro de inventario</h1>
+            <p className="text-sm text-slate-500 mt-1">
               Descarga el reporte de inventario de bienes. Usa el menú de Reportes para cambiar entre registros de inventario y registros de fichas.
             </p>
           </div>
@@ -470,7 +473,7 @@ export default function ReportesInventarioPage() {
                   setEndDate("");
                   setActiveFilter("todos");
                 }}
-                className={filterType === type ? "bg-slate-800 hover:bg-slate-900" : ""}
+                className={filterType === type ? "bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-md" : "hover:border-blue-400 hover:text-blue-600"}
               >
                 {type.charAt(0).toUpperCase() + type.slice(1)}
               </Button>
@@ -479,45 +482,52 @@ export default function ReportesInventarioPage() {
 
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">Buscar</label>
-              <Input
-                type="text"
-                placeholder={
-                  filterType === "bienes"
-                    ? "Descripción, código..."
-                    : filterType === "componentes"
-                    ? "Componente, bien..."
-                    : "Nombre, tipo..."
-                }
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <label className="text-sm font-semibold text-slate-700 block mb-2">Buscar</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input
+                  type="text"
+                  className="pl-10 pr-10 rounded-lg shadow-sm border"
+                  placeholder={
+                    filterType === "bienes"
+                      ? "Descripción, código..."
+                      : filterType === "componentes"
+                      ? "Componente, bien..."
+                      : "Nombre, tipo..."
+                  }
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-2 top-2 text-slate-500">✕</button>}
+              </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">Desde</label>
+              <label className="text-sm font-semibold text-slate-700 block mb-2">Desde</label>
               <Input
                 type="date"
+                className="rounded-lg shadow-sm border"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">Hasta</label>
+              <label className="text-sm font-semibold text-slate-700 block mb-2">Hasta</label>
               <Input
                 type="date"
+                className="rounded-lg shadow-sm border"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">Estado</label>
+              <label className="text-sm font-semibold text-slate-700 block mb-2">Estado</label>
               <select
                 value={activeFilter}
                 onChange={(e) => setActiveFilter(e.target.value as "todos" | "activos" | "inactivos")}
-                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-slate-800"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 shadow-sm"
               >
                 <option value="todos">Todos</option>
                 <option value="activos">Activos</option>
@@ -530,7 +540,7 @@ export default function ReportesInventarioPage() {
             <Button
               onClick={handleExport}
               disabled={exporting}
-              className="gap-2 bg-slate-800 hover:bg-slate-900"
+              className="gap-2 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white shadow-lg"
             >
               <Download className="w-4 h-4" />
               {exporting ? "Generando..." : `Descargar ${filterType.charAt(0).toUpperCase() + filterType.slice(1)}`}

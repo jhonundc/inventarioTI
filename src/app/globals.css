@@ -128,3 +128,42 @@
     @apply font-sans;
   }
 }
+
+/* Login background styles */
+.login-bg-container {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.login-bg-image {
+  position: absolute;
+  inset: 0;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  will-change: transform, filter;
+  filter: blur(1px) brightness(0.85) saturate(1.02);
+  transform-origin: center center;
+  animation: bg-zoom 20s ease-in-out infinite alternate;
+}
+.login-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2,6,23,0.25), rgba(2,6,23,0.35));
+  z-index: 1;
+}
+
+@keyframes bg-zoom {
+  0% { transform: scale(1) translateY(0px); }
+  100% { transform: scale(1.06) translateY(-12px); }
+}
+
+/* Subtle parallax on pointer move (non-critical; progressive enhancement) */
+:root {
+  --bg-translate-x: 0px;
+  --bg-translate-y: 0px;
+}
+.login-bg-image {
+  transform: translate3d(var(--bg-translate-x), var(--bg-translate-y), 0) scale(1);
+}
